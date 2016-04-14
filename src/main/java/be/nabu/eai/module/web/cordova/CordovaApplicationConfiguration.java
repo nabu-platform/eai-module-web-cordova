@@ -5,6 +5,8 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import be.nabu.eai.module.keystore.KeyStoreArtifact;
+import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 
@@ -17,7 +19,10 @@ public class CordovaApplicationConfiguration {
 	
 	private List<CordovaPlugin> plugins;
 	
+	private WebApplication application;
+	
 	private KeyStoreArtifact keystore;
+	private String signatureAlias;
 
 	public String getName() {
 		return name;
@@ -55,6 +60,29 @@ public class CordovaApplicationConfiguration {
 		this.plugins = plugins;
 	}
 	
+	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
+	public KeyStoreArtifact getKeystore() {
+		return keystore;
+	}
+	public void setKeystore(KeyStoreArtifact keystore) {
+		this.keystore = keystore;
+	}
+	
+	public String getSignatureAlias() {
+		return signatureAlias;
+	}
+	public void setSignatureAlias(String signatureAlias) {
+		this.signatureAlias = signatureAlias;
+	}
+	
+	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
+	public WebApplication getApplication() {
+		return application;
+	}
+	public void setApplication(WebApplication application) {
+		this.application = application;
+	}
+
 	public enum Platform {
 		ANDROID("android"),
 		IOS("iOS"),
