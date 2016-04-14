@@ -147,6 +147,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								null,
 								properties
 							);
+							// TODO: clean plugins every time (it will NOT override update variable properties)
 							// same for the plugins
 							if (artifact.getConfiguration().getPlugins() != null) {
 								for (CordovaPlugin plugin : artifact.getConfiguration().getPlugins()) {
@@ -220,6 +221,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 									MainController.getInstance().notify(new ValidationMessage(Severity.ERROR, "Please configure a keystore and alias that can be used to sign the apk"));
 								}
 								else {
+									// TODO: always overwrite the keystore otherwise changes are not picked up (e.g. if you updated the password!)
 									File keystore = new File(project, "keystore.jks");
 									if (!keystore.exists()) {
 										artifact.getConfiguration().getKeystore().getKeyStore().save(new FileItem(null, keystore, false));
