@@ -227,9 +227,13 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 									// now run it
 									System.out.println(SystemMethodProvider.exec(
 										project.getAbsolutePath(),
-										new String [] { cordovaPath + "cordova", "run", combo.getSelectionModel().getSelectedItem().getCordovaName(), 
-											"--keystore=keystore.jks", "--storePassword=" + artifact.getConfiguration().getKeystore().getConfiguration().getPassword(),
-											"--alias=" + artifact.getConfiguration().getSignatureAlias()},
+										new String [] { cordovaPath + "cordova", "run", combo.getSelectionModel().getSelectedItem().getCordovaName(),
+											"--release",
+											"--",
+											"--keystore=keystore.jks", 
+											"--storePassword=" + artifact.getConfiguration().getKeystore().getConfiguration().getPassword(),
+											"--alias=" + artifact.getConfiguration().getSignatureAlias(),
+											"--password=" + artifact.getConfiguration().getKeystore().getConfiguration().getKeyPasswords().get(artifact.getConfiguration().getSignatureAlias())},
 											// can also set the private key password using "--password=password"
 										null,
 										properties

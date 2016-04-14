@@ -3,6 +3,7 @@ package be.nabu.eai.module.web.cordova;
 import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.module.keystore.KeyStoreArtifact;
@@ -11,6 +12,7 @@ import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
+@XmlType(propOrder = {"namespace", "name", "title", "platforms", "plugins", "application", "keystore", "signatureAlias"})
 public class CordovaApplicationConfiguration {
 	
 	private String name, namespace, title;

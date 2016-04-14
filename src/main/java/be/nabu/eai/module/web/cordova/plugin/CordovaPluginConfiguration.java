@@ -3,8 +3,10 @@ package be.nabu.eai.module.web.cordova.plugin;
 import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
 
 @XmlRootElement(name = "cordovaPlugin")
+@XmlType(propOrder = { "name", "variables" })
 public class CordovaPluginConfiguration {
 	private String name;
 	private List<String> variables;
