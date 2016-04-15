@@ -51,6 +51,9 @@ import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.WritableContainer;
 
+// TODO: add "clear" button to clear the project (also the keystore!!)
+// TODO: add "run in release" mode can have debug mode, not sure if "run in release" is necessary? perhaps simply build
+// TODO: add "build" button
 public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaApplicationConfiguration, CordovaApplication> {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -199,7 +202,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 									environment.put("mobile", "true");
 									ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
 									StringWriter writer = new StringWriter();
-									SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false);
+									SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
 									runtime.setFormatter(outputFormatter);
 									runtime.run();
 									String path = ScriptUtils.getFullName(script).replace(".", "/") + ".html";
