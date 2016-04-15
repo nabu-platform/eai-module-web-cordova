@@ -99,7 +99,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						}
 						String androidHome = MainController.getProperties().getProperty("ANDROID_HOME", System.getProperty("ANDROID_HOME", System.getenv("ANDROID_HOME")));
 						List<SystemProperty> properties = new ArrayList<SystemProperty>();
-						SystemProperty systemProperty = new SystemProperty("PATH", nodePath);
+						SystemProperty systemProperty = new SystemProperty("PATH", (nodePath == null ? "" : nodePath + System.getProperty("path.separator")) + System.getenv("PATH"));
 						properties.add(systemProperty);
 						if (androidHome != null) {
 							properties.add(new SystemProperty("ANDROID_HOME", androidHome));
@@ -125,7 +125,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						if (!cordovaPath.endsWith("/")) {
 							cordovaPath += "/";
 						}
-						systemProperty.setValue((systemProperty.getValue() == null ? "" : systemProperty.getValue() + System.getProperty("path.separator")) + cordovaPath + System.getProperty("path.separator") + System.getenv("PATH"));
+						systemProperty.setValue(cordovaPath + System.getProperty("path.separator") + systemProperty.getValue());
 						logger.info("Using PATH = " + systemProperty.getValue());
 						// add cordova to the path variable
 						File project = new File(folder, artifact.getConfiguration().getName());
