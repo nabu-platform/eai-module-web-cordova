@@ -230,7 +230,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								System.out.println(SystemMethodProvider.exec(
 									project.getAbsolutePath(),
 									new String [] { cordovaPath + "cordova", "run", combo.getSelectionModel().getSelectedItem().getCordovaName(),
-										"--release",
+//										"--release",
 										"--",
 										"--keystore=keystore.jks", 
 										"--storePassword=" + artifact.getConfiguration().getKeystore().getConfiguration().getPassword(),
