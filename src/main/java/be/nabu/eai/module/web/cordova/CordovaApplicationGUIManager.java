@@ -206,7 +206,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 									SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
 									runtime.setFormatter(outputFormatter);
 									runtime.run();
-									String path = ScriptUtils.getFullName(script).replace(".", "/") + ".html";
+									String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
 									Resource file = ResourceUtils.touch(wwwDirectory, path);
 									WritableContainer<ByteBuffer> writable = ((WritableResource) file).getWritable();
 									try {
