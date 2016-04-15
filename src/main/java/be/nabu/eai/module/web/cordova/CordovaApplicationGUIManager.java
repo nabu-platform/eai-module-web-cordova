@@ -195,7 +195,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 							ResourceContainer<?> pagesFolder = (ResourceContainer<?>) publicFolder.getChild("pages");
 							if (pagesFolder != null) {
 								logger.info("Copying pages...");
-								ServiceMethodProvider serviceMethodProvider = new ServiceMethodProvider(artifact.getRepository(), artifact.getRepository());
+								ServiceMethodProvider serviceMethodProvider = new ServiceMethodProvider(artifact.getRepository(), artifact.getRepository(), artifact.getRepository().getServiceRunner());
 								ScriptRepository repository = new ScannableScriptRepository(null, pagesFolder, new GlueParserProvider(serviceMethodProvider), Charset.defaultCharset());
 								for (Script script : repository) {
 									Map<String, String> environment = new HashMap<String, String>();
