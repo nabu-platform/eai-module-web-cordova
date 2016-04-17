@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
+import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Platform;
 import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.EAIResourceRepository;
@@ -195,12 +196,28 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 							ResourceContainer<?> pagesFolder = (ResourceContainer<?>) publicFolder.getChild("pages");
 							if (pagesFolder != null) {
 								logger.info("Copying pages...");
-								System.out.println("USING service runner: " + artifact.getRepository().getServiceRunner());
 								ServiceMethodProvider serviceMethodProvider = new ServiceMethodProvider(artifact.getRepository(), artifact.getRepository(), artifact.getRepository().getServiceRunner());
 								ScriptRepository repository = new ScannableScriptRepository(null, pagesFolder, new GlueParserProvider(serviceMethodProvider), Charset.defaultCharset());
+								WebApplication application = artifact.getConfiguration().getApplication();
+								String hostName = application.getConfiguration().getVirtualHost().getConfiguration().getHost();
+								Integer port = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getPort();
+								boolean secure = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getKeystore() != null;
+								String host = null;
+								if (hostName != null) {
+									if (port != null) {
+										hostName += ":" + port;
+									}
+									host = secure ? "https://" : "http://";
+									host += hostName;
+								}
+								
 								for (Script script : repository) {
 									Map<String, String> environment = new HashMap<String, String>();
 									environment.put("mobile", "true");
+									environment.put("web", "false");
+									environment.put("url", host);
+									environment.put("host", hostName);
+									environment.put("webApplicationId", application.getId());
 									ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
 									StringWriter writer = new StringWriter();
 									SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
