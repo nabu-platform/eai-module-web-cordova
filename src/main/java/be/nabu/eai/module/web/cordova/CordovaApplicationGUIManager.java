@@ -217,6 +217,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 									environment.put("web", "false");
 									environment.put("url", host);
 									environment.put("host", hostName);
+									environment.put("hostName", application.getConfiguration().getVirtualHost().getConfiguration().getHost());
 									environment.put("webApplicationId", application.getId());
 									ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
 									StringWriter writer = new StringWriter();
