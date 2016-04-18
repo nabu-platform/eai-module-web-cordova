@@ -87,7 +87,7 @@ public class CordovaApplicationConfiguration {
 
 	public enum Platform {
 		ANDROID("android"),
-		IOS("iOS"),
+		IOS("ios"),
 		WINDOWS("windows"),
 		BLACKBERRY10("blackberry10"),
 		FIRE_OS("fireos"),
