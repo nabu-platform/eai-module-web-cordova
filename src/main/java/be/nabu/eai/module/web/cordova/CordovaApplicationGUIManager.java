@@ -23,10 +23,13 @@ import org.slf4j.LoggerFactory;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
 import be.nabu.eai.module.web.application.WebApplication;
+import be.nabu.eai.module.web.application.WebFragment;
+import be.nabu.eai.module.web.component.WebComponent;
 import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Platform;
 import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.resources.RepositoryEntry;
+import be.nabu.glue.MultipleRepository;
 import be.nabu.glue.ScriptRuntime;
 import be.nabu.glue.ScriptUtils;
 import be.nabu.glue.api.Script;
@@ -38,6 +41,7 @@ import be.nabu.glue.impl.parsers.GlueParserProvider;
 import be.nabu.glue.impl.providers.SystemMethodProvider;
 import be.nabu.glue.repositories.ScannableScriptRepository;
 import be.nabu.glue.services.ServiceMethodProvider;
+import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.ResourceUtils;
@@ -183,9 +187,8 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						projectDirectory.delete("www");
 						FileDirectory wwwDirectory = (FileDirectory) projectDirectory.create("www", Resource.CONTENT_TYPE_DIRECTORY);
 						
+						MultipleRepository repository = new MultipleRepository(null);
 						ResourceContainer<?> publicFolder = (ResourceContainer<?>) artifact.getConfiguration().getApplication().getDirectory().getChild(EAIResourceRepository.PUBLIC);
-						ResourceContainer<?> privateFolder = (ResourceContainer<?>) artifact.getConfiguration().getApplication().getDirectory().getChild(EAIResourceRepository.PRIVATE);
-						
 						// copy the resource files to the www directory
 						if (publicFolder != null) {
 							ResourceContainer<?> resources = (ResourceContainer<?>) publicFolder.getChild("resources");
@@ -193,47 +196,51 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								logger.info("Copying resources...");
 								ResourceUtils.copy(resources, wwwDirectory);
 							}
-							ResourceContainer<?> pagesFolder = (ResourceContainer<?>) publicFolder.getChild("pages");
-							if (pagesFolder != null) {
-								logger.info("Copying pages...");
-								ServiceMethodProvider serviceMethodProvider = new ServiceMethodProvider(artifact.getRepository(), artifact.getRepository(), artifact.getRepository().getServiceRunner());
-								ScriptRepository repository = new ScannableScriptRepository(null, pagesFolder, new GlueParserProvider(serviceMethodProvider), Charset.defaultCharset());
-								WebApplication application = artifact.getConfiguration().getApplication();
-								String hostName = application.getConfiguration().getVirtualHost().getConfiguration().getHost();
-								Integer port = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getPort();
-								boolean secure = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getKeystore() != null;
-								String host = null;
-								if (hostName != null) {
-									if (port != null) {
-										hostName += ":" + port;
-									}
-									host = secure ? "https://" : "http://";
-									host += hostName;
-								}
-								
-								for (Script script : repository) {
-									Map<String, String> environment = new HashMap<String, String>();
-									environment.put("mobile", "true");
-									environment.put("web", "false");
-									environment.put("url", host);
-									environment.put("host", hostName);
-									environment.put("hostName", application.getConfiguration().getVirtualHost().getConfiguration().getHost());
-									environment.put("webApplicationId", application.getId());
-									ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
-									StringWriter writer = new StringWriter();
-									SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
-									runtime.setFormatter(outputFormatter);
-									runtime.run();
-									String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
-									Resource file = ResourceUtils.touch(wwwDirectory, path);
-									WritableContainer<ByteBuffer> writable = ((WritableResource) file).getWritable();
-									try {
-										writable.write(IOUtils.wrap(writer.toString().getBytes(), true));
-									}
-									finally {
-										writable.close();
-									}
-								}
+						}
+
+						// run all the scripts
+						ServiceMethodProvider serviceMethodProvider = new ServiceMethodProvider(artifact.getRepository(), artifact.getRepository(), artifact.getRepository().getServiceRunner());
+						GlueParserProvider parserProvider = new GlueParserProvider(serviceMethodProvider);
+						
+						// add the repository for this artifact
+						addRepository(repository, artifact.getDirectory(), parserProvider);
+						// add repository of web fragments
+						addRepository(repository, artifact.getConfiguration().getApplication().getConfiguration().getWebFragments(), parserProvider);
+						
+						logger.info("Copying pages...");
+						WebApplication application = artifact.getConfiguration().getApplication();
+						String hostName = application.getConfiguration().getVirtualHost().getConfiguration().getHost();
+						Integer port = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getPort();
+						boolean secure = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getKeystore() != null;
+						String host = null;
+						if (hostName != null) {
+							if (port != null) {
+								hostName += ":" + port;
+							}
+							host = secure ? "https://" : "http://";
+							host += hostName;
+						}
+						Map<String, String> environment = new HashMap<String, String>();
+						environment.put("mobile", "true");
+						environment.put("web", "false");
+						environment.put("url", host);
+						environment.put("host", hostName);
+						environment.put("hostName", application.getConfiguration().getVirtualHost().getConfiguration().getHost());
+						environment.put("webApplicationId", application.getId());
+						for (Script script : repository) {
+							ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
+							StringWriter writer = new StringWriter();
+							SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
+							runtime.setFormatter(outputFormatter);
+							runtime.run();
+							String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
+							Resource file = ResourceUtils.touch(wwwDirectory, path);
+							WritableContainer<ByteBuffer> writable = ((WritableResource) file).getWritable();
+							try {
+								writable.write(IOUtils.wrap(writer.toString().getBytes(), true));
+							}
+							finally {
+								writable.close();
 							}
 						}
 						
@@ -295,4 +302,32 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		}
 	}
 
+	private static void addRepository(MultipleRepository repository, List<WebFragment> fragments, GlueParserProvider parserProvider) throws IOException {
+		for (WebFragment fragment : fragments) {
+			if (fragment instanceof WebComponent) {
+				addRepository(repository, ((WebComponent) fragment).getDirectory(), parserProvider);
+				addRepository(repository, ((WebComponent) fragment).getConfiguration().getWebFragments(), parserProvider);
+			}
+		}
+	}
+	
+	private static void addRepository(MultipleRepository repository, ResourceContainer<?> root, GlueParserProvider parserProvider) throws IOException {
+		ResourceContainer<?> publicFolder = (ResourceContainer<?>) root.getChild(EAIResourceRepository.PUBLIC);
+		ResourceContainer<?> privateFolder = (ResourceContainer<?>) root.getChild(EAIResourceRepository.PRIVATE);
+		if (publicFolder != null) {
+			ResourceContainer<?> pagesFolder = (ResourceContainer<?>) publicFolder.getChild("pages");
+			if (pagesFolder != null) {
+				ScannableScriptRepository scannableScriptRepository = new ScannableScriptRepository(null, pagesFolder, parserProvider, Charset.defaultCharset());
+				scannableScriptRepository.setGroup(GlueListener.PUBLIC);
+				repository.add(scannableScriptRepository);
+			}
+		}
+		// add private scripts
+		if (privateFolder != null) {
+			Resource child = privateFolder.getChild("scripts");
+			if (child != null) {
+				repository.add(new ScannableScriptRepository(repository, (ResourceContainer<?>) child, parserProvider, Charset.defaultCharset()));
+			}
+		}
+	}
 }
