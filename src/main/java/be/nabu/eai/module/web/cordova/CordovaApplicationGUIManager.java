@@ -203,7 +203,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						GlueParserProvider parserProvider = new GlueParserProvider(serviceMethodProvider);
 						
 						// add the repository for this artifact
-						addRepository(repository, artifact.getDirectory(), parserProvider);
+						addRepository(repository, artifact.getConfiguration().getApplication().getDirectory(), parserProvider);
 						// add repository of web fragments
 						addRepository(repository, artifact.getConfiguration().getApplication().getConfiguration().getWebFragments(), parserProvider);
 						
