@@ -25,6 +25,7 @@ import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.component.WebComponent;
+import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Orientation;
 import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Platform;
 import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.EAIResourceRepository;
@@ -50,10 +51,12 @@ import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.libs.resources.file.FileDirectory;
 import be.nabu.libs.resources.file.FileItem;
+import be.nabu.libs.resources.file.FileResource;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
+import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.io.api.WritableContainer;
 
 // TODO: add "clear" button to clear the project (also the keystore!!)
@@ -242,6 +245,36 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 							finally {
 								writable.close();
 							}
+						}
+						
+						logger.info("Adding preferences...");
+						FileItem configurationChild = (FileItem) projectDirectory.getChild("config.xml");
+						if (configurationChild == null) {
+							throw new IllegalStateException("Could not find config.xml in the application root, please clean the cordova application");
+						}
+						ReadableContainer<ByteBuffer> readable = configurationChild.getReadable();
+						byte[] bytes;
+						try {
+							bytes = IOUtils.toBytes(readable);
+						}
+						finally {
+							readable.close();
+						}
+						String config = new String(bytes, "UTF-8");
+						// remove current option for fullscreen
+						config = config.replaceAll("(?s)<preference name=\"Fullscreen\"[^>]+/>", "");
+						// add new option
+						config = config.replaceAll("(?s)(</widget>)", "\t<preference name=\"Fullscreen\" value=\"" + (artifact.getConfiguration().getFullscreen() != null && artifact.getConfiguration().getFullscreen()) + "\" />\n$1");
+						// remove current option for orientation
+						config = config.replaceAll("(?s)<preference name=\"Orientation\"[^>]+/>", "");
+						// add new option
+						config = config.replaceAll("(?s)(</widget>)", "\t<preference name=\"Orientation\" value=\"" + (artifact.getConfiguration().getOrientation() != null ? artifact.getConfiguration().getOrientation().getCordovaName() : Orientation.BOTH.getCordovaName()) + "\" />\n$1");
+						WritableContainer<ByteBuffer> writable = configurationChild.getWritable();
+						try {
+							writable.write(IOUtils.wrap(config.getBytes("UTF-8"), true));
+						}
+						finally {
+							writable.close();
 						}
 						
 						// for android we need signatures based on the configured keystore

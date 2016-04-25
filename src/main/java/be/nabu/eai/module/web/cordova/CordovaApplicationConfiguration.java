@@ -25,6 +25,8 @@ public class CordovaApplicationConfiguration {
 	
 	private KeyStoreArtifact keystore;
 	private String signatureAlias;
+	private Boolean fullscreen;
+	private Orientation orientation;
 
 	public String getName() {
 		return name;
@@ -84,6 +86,19 @@ public class CordovaApplicationConfiguration {
 	public void setApplication(WebApplication application) {
 		this.application = application;
 	}
+	
+	public Boolean getFullscreen() {
+		return fullscreen;
+	}
+	public void setFullscreen(Boolean fullscreen) {
+		this.fullscreen = fullscreen;
+	}
+	public Orientation getOrientation() {
+		return orientation;
+	}
+	public void setOrientation(Orientation orientation) {
+		this.orientation = orientation;
+	}
 
 	public enum Platform {
 		ANDROID("android"),
@@ -106,5 +121,20 @@ public class CordovaApplicationConfiguration {
 			return cordovaName;
 		}
 	}
-	
+
+	public enum Orientation {
+		BOTH("default"),
+		PORTRAIT("portrait"),
+		LANDSCAPE("landscape");
+		
+		private String name;
+
+		private Orientation(String name) {
+			this.name = name;
+		}
+
+		public String getCordovaName() {
+			return name;
+		}
+	}
 }
