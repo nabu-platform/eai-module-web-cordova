@@ -12,7 +12,7 @@ import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
-@XmlType(propOrder = {"namespace", "name", "title", "platforms", "plugins", "application", "keystore", "signatureAlias"})
+@XmlType(propOrder = {"namespace", "name", "title", "platforms", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation" })
 public class CordovaApplicationConfiguration {
 	
 	private String name, namespace, title;
