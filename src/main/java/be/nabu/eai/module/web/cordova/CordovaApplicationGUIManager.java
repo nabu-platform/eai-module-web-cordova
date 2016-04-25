@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +103,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				@Override
 				public void handle(ActionEvent arg0) {
 					try {
+						boolean alwaysClean = true;
 						String nodePath = MainController.getProperties().getProperty("NODE_PATH", System.getProperty("NODE_PATH", System.getenv("NODE_PATH")));
 						if (nodePath == null) {
 							logger.warn("NODE_PATH is not configured in developer.properties, make sure both node and npm are available in your system PATH");
@@ -132,12 +135,34 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								properties
 							);
 						}
+						if (artifact.getConfiguration().getPlatforms().contains(Platform.IOS)) {
+							File ios = new File(folder, "node_modules/ios-deploy/bin");
+							logger.info("Installing ios-deploy");
+							SystemMethodProvider.exec(
+								folder.getAbsolutePath(),
+								// the --prefix forces npm to install it in the local directory instead of potentially refreshing a previous installation in an unknown location
+								new String [] { (nodePath == null ? "" : nodePath) + "npm", "install", "--prefix", folder.getAbsolutePath(), "ios-deploy" },
+								null,
+								properties
+							);
+							String iosPath = ios.getAbsolutePath();
+							if (!iosPath.endsWith("/")) {
+								iosPath += "/";
+							}
+							systemProperty.setValue(iosPath + System.getProperty("path.separator") + systemProperty.getValue());
+						}
 						String cordovaPath = cordova.getAbsolutePath();
 						if (!cordovaPath.endsWith("/")) {
 							cordovaPath += "/";
 						}
 						systemProperty.setValue(cordovaPath + System.getProperty("path.separator") + systemProperty.getValue());
 						logger.info("Using PATH = " + systemProperty.getValue());
+						
+						if (alwaysClean) {
+							FileDirectory cordovaFolder = new FileDirectory(null, folder, false);
+							cordovaFolder.delete(artifact.getConfiguration().getName());
+						}
+
 						// add cordova to the path variable
 						File project = new File(folder, artifact.getConfiguration().getName());
 						// create the project if it doesn't exist yet
@@ -161,7 +186,24 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						// TODO: clean plugins every time (it will NOT override update variable properties)
 						// same for the plugins
 						if (artifact.getConfiguration().getPlugins() != null) {
-							for (CordovaPlugin plugin : artifact.getConfiguration().getPlugins()) {
+							List<CordovaPlugin> plugins = new ArrayList<CordovaPlugin>(artifact.getConfiguration().getPlugins());
+							// crosswalk does NOT play nice with other plugins, it has to be added _first_ before others otherwise you get strange behavior:
+							// we have seen "VERSION DOWNGRADE"
+							// we have seen "DUPLICATE PERMISSION"
+							// once those were resolved by removing the application from the device, we deployed and got an error that "device ready" did not fire within 5 seconds and got an empty screen
+							// by rebuilding with that plugin first, we got a decent deployment
+							Collections.sort(plugins, new Comparator<CordovaPlugin>() {
+								@Override
+								public int compare(CordovaPlugin o1, CordovaPlugin o2) {
+									try {
+										return o2.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview") ? -1 : 0;
+									}
+									catch (IOException e) {
+										throw new RuntimeException(e);
+									}
+								}
+							});
+							for (CordovaPlugin plugin : plugins) {
 								List<String> parts = new ArrayList<String>();
 								parts.add(cordovaPath + "cordova");
 								parts.add("plugin");
