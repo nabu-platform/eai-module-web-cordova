@@ -177,9 +177,12 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						}
 						// TODO: interpret the results of "cordova platform list" to only add if required and delete if necessary
 						// currently we simply keep adding as cordova simply prints an exception if the platform already exists
+						String version = artifact.getConfiguration().getPlatformVersions().get(combo.getSelectionModel().getSelectedItem().name());
+						version = version == null || version.trim().isEmpty() ? "" : "@" + version;
+						logger.info("Adding platform " + combo.getSelectionModel().getSelectedItem().getCordovaName() + version);
 						SystemMethodProvider.exec(
 							project.getAbsolutePath(),
-							new String [] { cordovaPath + "cordova", "platform", "add", combo.getSelectionModel().getSelectedItem().getCordovaName() },
+							new String [] { cordovaPath + "cordova", "platform", "add", combo.getSelectionModel().getSelectedItem().getCordovaName() + version },
 							null,
 							properties
 						);
@@ -362,6 +365,19 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				}
 			});
 	
+			// synchronize the map for the applications
+			Map<String, String> platformVersions = artifact.getConfiguration().getPlatformVersions();
+			List<String> platforms = new ArrayList<String>(platformVersions.keySet());
+			for (Platform platform : artifact.getConfiguration().getPlatforms()) {
+				if (!platformVersions.containsKey(platform.name())) {
+					platformVersions.put(platform.name(), null);
+				}
+				platforms.remove(platform.name());
+			}
+			for (String platform : platforms) {
+				platformVersions.remove(platform);
+			}
+			
 			buttons.getChildren().addAll(combo, runButton);
 			AnchorPane anchor = new AnchorPane();
 			display(artifact, anchor);

@@ -1,6 +1,8 @@
 package be.nabu.eai.module.web.cordova;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
@@ -10,9 +12,10 @@ import be.nabu.eai.module.keystore.KeyStoreArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
+import be.nabu.eai.repository.util.KeyValueMapAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
-@XmlType(propOrder = {"namespace", "name", "title", "platforms", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation" })
+@XmlType(propOrder = {"namespace", "name", "title", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation" })
 public class CordovaApplicationConfiguration {
 	
 	private String name, namespace, title;
@@ -27,6 +30,8 @@ public class CordovaApplicationConfiguration {
 	private String signatureAlias;
 	private Boolean fullscreen;
 	private Orientation orientation;
+	
+	private Map<String, String> platformVersions;
 
 	public String getName() {
 		return name;
@@ -98,6 +103,17 @@ public class CordovaApplicationConfiguration {
 	}
 	public void setOrientation(Orientation orientation) {
 		this.orientation = orientation;
+	}
+	
+	@XmlJavaTypeAdapter(value = KeyValueMapAdapter.class)
+	public Map<String, String> getPlatformVersions() {
+		if (platformVersions == null) {
+			platformVersions = new HashMap<String, String>();
+		}
+		return platformVersions;
+	}
+	public void setPlatformVersions(Map<String, String> platformVersions) {
+		this.platformVersions = platformVersions;
 	}
 
 	public enum Platform {
