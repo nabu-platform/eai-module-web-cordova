@@ -161,7 +161,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								true
 							);
 						}
-						if (artifact.getConfiguration().getPlatforms().contains(Platform.IOS)) {
+						if (combo.getSelectionModel().getSelectedItem().equals(Platform.IOS)) {
 							File ios = new File(folder, "node_modules/ios-deploy/build/Release");
 							logger.info("Installing ios-deploy");
 							exec(
