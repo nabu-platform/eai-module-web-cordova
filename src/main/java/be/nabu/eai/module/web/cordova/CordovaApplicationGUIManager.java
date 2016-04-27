@@ -474,7 +474,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		}
 	}
 
-	private static void addRepository(MultipleRepository repository, List<WebFragment> fragments, GlueParserProvider parserProvider) throws IOException {
+	private void addRepository(MultipleRepository repository, List<WebFragment> fragments, GlueParserProvider parserProvider) throws IOException {
 		if (fragments != null) {
 			for (WebFragment fragment : fragments) {
 				if (fragment instanceof WebComponent) {
@@ -485,13 +485,14 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		}
 	}
 	
-	private static void addRepository(MultipleRepository repository, ResourceContainer<?> root, GlueParserProvider parserProvider) throws IOException {
+	private void addRepository(MultipleRepository repository, ResourceContainer<?> root, GlueParserProvider parserProvider) throws IOException {
 		ResourceContainer<?> publicFolder = (ResourceContainer<?>) root.getChild(EAIResourceRepository.PUBLIC);
 		ResourceContainer<?> privateFolder = (ResourceContainer<?>) root.getChild(EAIResourceRepository.PRIVATE);
+		logger.info("Adding root repository: " + root + ", public = " + publicFolder + ", private = " + privateFolder);
 		if (publicFolder != null) {
 			ResourceContainer<?> pagesFolder = (ResourceContainer<?>) publicFolder.getChild("pages");
 			if (pagesFolder != null) {
-				ScannableScriptRepository scannableScriptRepository = new ScannableScriptRepository(null, pagesFolder, parserProvider, Charset.defaultCharset());
+				ScannableScriptRepository scannableScriptRepository = new ScannableScriptRepository(repository, pagesFolder, parserProvider, Charset.defaultCharset());
 				scannableScriptRepository.setGroup(GlueListener.PUBLIC);
 				repository.add(scannableScriptRepository);
 			}
