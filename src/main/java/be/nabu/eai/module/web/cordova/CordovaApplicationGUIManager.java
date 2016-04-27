@@ -1,7 +1,11 @@
 package be.nabu.eai.module.web.cordova;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -10,11 +14,13 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.TextArea;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -36,12 +42,10 @@ import be.nabu.glue.MultipleRepository;
 import be.nabu.glue.ScriptRuntime;
 import be.nabu.glue.ScriptUtils;
 import be.nabu.glue.api.Script;
-import be.nabu.glue.api.ScriptRepository;
 import be.nabu.glue.impl.SimpleExecutionEnvironment;
 import be.nabu.glue.impl.formatters.SimpleOutputFormatter;
 import be.nabu.glue.impl.methods.SystemMethods.SystemProperty;
 import be.nabu.glue.impl.parsers.GlueParserProvider;
-import be.nabu.glue.impl.providers.SystemMethodProvider;
 import be.nabu.glue.repositories.ScannableScriptRepository;
 import be.nabu.glue.services.ServiceMethodProvider;
 import be.nabu.libs.http.glue.GlueListener;
@@ -53,11 +57,11 @@ import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.libs.resources.file.FileDirectory;
 import be.nabu.libs.resources.file.FileItem;
-import be.nabu.libs.resources.file.FileResource;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
+import be.nabu.utils.io.api.CharBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.io.api.WritableContainer;
 
@@ -99,10 +103,29 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			}
 			Button runButton = new Button("Run");
 			runButton.disableProperty().bind(combo.getSelectionModel().selectedItemProperty().isNull());
+				
+			// synchronize the map for the applications
+			Map<String, String> platformVersions = artifact.getConfiguration().getPlatformVersions();
+			List<String> platforms = new ArrayList<String>(platformVersions.keySet());
+			for (Platform platform : artifact.getConfiguration().getPlatforms()) {
+				if (!platformVersions.containsKey(platform.name())) {
+					platformVersions.put(platform.name(), null);
+				}
+				platforms.remove(platform.name());
+			}
+			for (String platform : platforms) {
+				platformVersions.remove(platform);
+			}
+			
+			final TextArea outputLog = new TextArea();
+			final TextArea errorLog = new TextArea();
+			
 			runButton.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {
 					try {
+						outputLog.clear();
+						errorLog.clear();
 						boolean alwaysClean = true;
 						String nodePath = MainController.getProperties().getProperty("NODE_PATH", System.getProperty("NODE_PATH", System.getenv("NODE_PATH")));
 						if (nodePath == null) {
@@ -127,23 +150,29 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						File cordova = new File(folder, "node_modules/cordova/bin");
 						if (!cordova.exists()) {
 							logger.info("Installing cordova in: " + folder.getAbsolutePath());
-							SystemMethodProvider.exec(
+							exec(
 								folder.getAbsolutePath(),
 								// the --prefix forces npm to install it in the local directory instead of potentially refreshing a previous installation in an unknown location
 								new String [] { (nodePath == null ? "" : nodePath) + "npm", "install", "--prefix", folder.getAbsolutePath(), "cordova" },
 								null,
-								properties
+								properties,
+								outputLog,
+								errorLog,
+								true
 							);
 						}
 						if (artifact.getConfiguration().getPlatforms().contains(Platform.IOS)) {
 							File ios = new File(folder, "node_modules/ios-deploy/build/Release");
 							logger.info("Installing ios-deploy");
-							SystemMethodProvider.exec(
+							exec(
 								folder.getAbsolutePath(),
 								// the --prefix forces npm to install it in the local directory instead of potentially refreshing a previous installation in an unknown location
 								new String [] { (nodePath == null ? "" : nodePath) + "npm", "install", "--prefix", folder.getAbsolutePath(), "ios-deploy" },
 								null,
-								properties
+								properties,
+								outputLog,
+								errorLog,
+								true
 							);
 							String iosPath = ios.getAbsolutePath();
 							if (!iosPath.endsWith("/")) {
@@ -168,11 +197,14 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						// create the project if it doesn't exist yet
 						if (!project.exists()) {
 							logger.info("Creating the application in: " + folder.getAbsolutePath() + " using cordova in: " + cordovaPath);
-							SystemMethodProvider.exec(
+							exec(
 								folder.getAbsolutePath(), 
 								new String [] { cordovaPath + "cordova", "create", artifact.getConfiguration().getName(), artifact.getConfiguration().getNamespace(), artifact.getConfiguration().getTitle() }, 
 								null, 
-								properties
+								properties,
+								outputLog,
+								errorLog,
+								true
 							);
 						}
 						// TODO: interpret the results of "cordova platform list" to only add if required and delete if necessary
@@ -180,11 +212,14 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						String version = artifact.getConfiguration().getPlatformVersions().get(combo.getSelectionModel().getSelectedItem().name());
 						version = version == null || version.trim().isEmpty() ? "" : "@" + version;
 						logger.info("Adding platform " + combo.getSelectionModel().getSelectedItem().getCordovaName() + version);
-						SystemMethodProvider.exec(
+						exec(
 							project.getAbsolutePath(),
 							new String [] { cordovaPath + "cordova", "platform", "add", combo.getSelectionModel().getSelectedItem().getCordovaName() + version },
 							null,
-							properties
+							properties,
+							outputLog,
+							errorLog,
+							true
 						);
 						// TODO: clean plugins every time (it will NOT override update variable properties)
 						// same for the plugins
@@ -219,11 +254,14 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 										parts.add(variable);
 									}
 								}
-								SystemMethodProvider.exec(
+								exec(
 									project.getAbsolutePath(),
 									parts.toArray(new String[parts.size()]),
 									null,
-									properties
+									properties,
+									outputLog,
+									errorLog,
+									true
 								);		
 							}
 						}
@@ -334,7 +372,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 									artifact.getConfiguration().getKeystore().getKeyStore().save(new FileItem(null, keystore, false));
 								}
 								// now run it
-								System.out.println(SystemMethodProvider.exec(
+								exec(
 									project.getAbsolutePath(),
 									new String [] { cordovaPath + "cordova", "run", combo.getSelectionModel().getSelectedItem().getCordovaName(),
 //										"--release",
@@ -345,17 +383,23 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 										"--password=" + artifact.getConfiguration().getKeystore().getConfiguration().getKeyPasswords().get(artifact.getConfiguration().getSignatureAlias())},
 										// can also set the private key password using "--password=password"
 									null,
-									properties
-								));
+									properties,
+									outputLog,
+									errorLog,
+									false
+								);
 							}
 						}
 						else {
 							// now run it
-							SystemMethodProvider.exec(
+							exec(
 								project.getAbsolutePath(),
 								new String [] { "cordova", "run", combo.getSelectionModel().getSelectedItem().getCordovaName() },
 								null,
-								properties
+								properties,
+								outputLog,
+								errorLog,
+								false
 							);
 						}
 					}
@@ -364,24 +408,11 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					}
 				}
 			});
-	
-			// synchronize the map for the applications
-			Map<String, String> platformVersions = artifact.getConfiguration().getPlatformVersions();
-			List<String> platforms = new ArrayList<String>(platformVersions.keySet());
-			for (Platform platform : artifact.getConfiguration().getPlatforms()) {
-				if (!platformVersions.containsKey(platform.name())) {
-					platformVersions.put(platform.name(), null);
-				}
-				platforms.remove(platform.name());
-			}
-			for (String platform : platforms) {
-				platformVersions.remove(platform);
-			}
 			
 			buttons.getChildren().addAll(combo, runButton);
 			AnchorPane anchor = new AnchorPane();
 			display(artifact, anchor);
-			vbox.getChildren().addAll(buttons, anchor);
+			vbox.getChildren().addAll(buttons, anchor, outputLog, errorLog);
 			AnchorPane.setLeftAnchor(vbox, 0d);
 			AnchorPane.setRightAnchor(vbox, 0d);
 			AnchorPane.setTopAnchor(vbox, 0d);
@@ -390,6 +421,56 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
+		}
+	}
+
+	private Thread errorThread, outputThread;
+	
+	private void exec(String directory, String [] commands, List<byte[]> inputContents, List<SystemProperty> systemProperties, final TextArea outputTarget, final TextArea errorTarget, boolean waitFor) throws IOException, InterruptedException {
+		if (!directory.endsWith("/")) {
+			directory += "/";
+		}
+		File dir = new File(directory);
+		if (!dir.exists()) {
+			throw new FileNotFoundException("Can not find directory: " + directory);
+		}
+		else if (!dir.isDirectory()) {
+			throw new IOException("The file is not a directory: " + directory);
+		}
+		String [] env = null;
+		if (systemProperties != null && !systemProperties.isEmpty()) {
+			List<SystemProperty> allProperties = new ArrayList<SystemProperty>();
+			// get the current environment properties, if you pass in _any_ properties, it will not inherit the ones from the current environment
+			Map<String, String> systemEnv = System.getenv();
+			for (String key : systemEnv.keySet()) {
+				allProperties.add(new SystemProperty(key, systemEnv.get(key)));
+			}
+			allProperties.addAll(systemProperties);
+			env = new String[allProperties.size()];
+			for (int i = 0; i < allProperties.size(); i++) {
+				env[i] = allProperties.get(i).getKey() + "=" + allProperties.get(i).getValue();
+			}
+		}
+		Process process = Runtime.getRuntime().exec(commands, env, dir);
+		if (inputContents != null && !inputContents.isEmpty()) {
+			OutputStream output = new BufferedOutputStream(process.getOutputStream());
+			try {
+				for (byte [] content : inputContents) {
+					output.write(content);
+				}
+			}
+			finally {
+				output.close();
+			}
+		}
+		errorThread = new Thread(new InputCopier(process.getErrorStream(), errorTarget));
+		errorThread.start();
+		
+		outputThread = new Thread(new InputCopier(process.getInputStream(), outputTarget));
+		outputThread.start();
+		
+		if (waitFor) {
+			process.waitFor(5, TimeUnit.MINUTES);
 		}
 	}
 
@@ -418,6 +499,49 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			Resource child = privateFolder.getChild("scripts");
 			if (child != null) {
 				repository.add(new ScannableScriptRepository(repository, (ResourceContainer<?>) child, parserProvider, Charset.defaultCharset()));
+			}
+		}
+	}
+	
+	private final class InputCopier implements Runnable {
+		private final TextArea target;
+		private InputStream input;
+
+		private InputCopier(InputStream input, TextArea target) {
+			this.input = input;
+			this.target = target;
+		}
+
+		@Override
+		public void run() {
+			ReadableContainer<CharBuffer> wrapReadable = IOUtils.wrapReadable(IOUtils.wrap(input), Charset.defaultCharset());
+			try {
+				IOUtils.copyChars(wrapReadable, new WritableContainer<CharBuffer>() {
+					@Override
+					public void close() throws IOException {
+						// do nothing
+					}
+					@Override
+					public long write(CharBuffer buffer) throws IOException {
+						long size = buffer.remainingData();
+						final String content = IOUtils.toString(buffer);
+						javafx.application.Platform.runLater(new Runnable() {
+							@Override
+							public void run() {
+								target.appendText(content);
+							}
+						});
+						return size;
+					}
+
+					@Override
+					public void flush() throws IOException {
+						// do nothing
+					}
+				});
+			}
+			catch (IOException e) {
+				e.printStackTrace();
 			}
 		}
 	}
