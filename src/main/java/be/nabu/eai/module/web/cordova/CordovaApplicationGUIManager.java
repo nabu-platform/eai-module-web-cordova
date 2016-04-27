@@ -475,10 +475,12 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 	}
 
 	private static void addRepository(MultipleRepository repository, List<WebFragment> fragments, GlueParserProvider parserProvider) throws IOException {
-		for (WebFragment fragment : fragments) {
-			if (fragment instanceof WebComponent) {
-				addRepository(repository, ((WebComponent) fragment).getDirectory(), parserProvider);
-				addRepository(repository, ((WebComponent) fragment).getConfiguration().getWebFragments(), parserProvider);
+		if (fragments != null) {
+			for (WebFragment fragment : fragments) {
+				if (fragment instanceof WebComponent) {
+					addRepository(repository, ((WebComponent) fragment).getDirectory(), parserProvider);
+					addRepository(repository, ((WebComponent) fragment).getConfiguration().getWebFragments(), parserProvider);
+				}
 			}
 		}
 	}
