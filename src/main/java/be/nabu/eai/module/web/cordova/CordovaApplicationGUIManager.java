@@ -131,7 +131,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						if (nodePath == null) {
 							logger.warn("NODE_PATH is not configured in developer.properties, make sure both node and npm are available in your system PATH");
 						}
-						else if(!nodePath.endsWith("/")) {
+						else if (!nodePath.endsWith("/")) {
 							nodePath += "/";
 						}
 						String androidHome = MainController.getProperties().getProperty("ANDROID_HOME", System.getProperty("ANDROID_HOME", System.getenv("ANDROID_HOME")));
@@ -192,6 +192,9 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 							cordovaFolder.delete(artifact.getConfiguration().getName());
 						}
 
+						if (!artifact.getConfiguration().getTitle().replaceAll("[\\s]+", "").equals(artifact.getConfiguration().getTitle())) {
+							MainController.getInstance().notify(new ValidationMessage(Severity.WARNING, "There is whitespace in the application title. This can pose a problem for ios in combination with (certain) plugins, use something like 'cordova-plugin-app-name'"));
+						}
 						// add cordova to the path variable
 						File project = new File(folder, artifact.getConfiguration().getName());
 						// ios can break if the title contains whitespace because it uses the name as part of the folder structure to place plugins in
