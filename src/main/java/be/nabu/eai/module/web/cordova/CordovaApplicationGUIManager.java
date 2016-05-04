@@ -194,12 +194,15 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 
 						// add cordova to the path variable
 						File project = new File(folder, artifact.getConfiguration().getName());
+						// ios can break if the title contains whitespace because it uses the name as part of the folder structure to place plugins in
+						// we create the application with a messed up title and replace it later on in post processing with the correct one
+						String trimmedTitle = artifact.getConfiguration().getTitle().replaceAll("[\\s]+", "");
 						// create the project if it doesn't exist yet
 						if (!project.exists()) {
 							logger.info("Creating the application in: " + folder.getAbsolutePath() + " using cordova in: " + cordovaPath);
 							exec(
 								folder.getAbsolutePath(), 
-								new String [] { cordovaPath + "cordova", "create", artifact.getConfiguration().getName(), artifact.getConfiguration().getNamespace(), artifact.getConfiguration().getTitle() }, 
+								new String [] { cordovaPath + "cordova", "create", artifact.getConfiguration().getName(), artifact.getConfiguration().getNamespace(), trimmedTitle }, 
 								null, 
 								properties,
 								outputLog,
@@ -234,7 +237,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								@Override
 								public int compare(CordovaPlugin o1, CordovaPlugin o2) {
 									try {
-										return o2.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview") ? -1 : 0;
+										return o2.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview") ? 1 : 0;
 									}
 									catch (IOException e) {
 										throw new RuntimeException(e);
@@ -364,6 +367,15 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						finally {
 							writable.close();
 						}
+
+						// post process title
+						if (Platform.ANDROID.equals(combo.getSelectionModel().getSelectedItem())) {
+							replace(projectDirectory, "platforms/android/res/values/strings.xml", "(<string name=\"app_name\">)" + trimmedTitle, "$1" + artifact.getConfiguration().getTitle());
+							replace(projectDirectory, "platforms/android/res/xml/config.xml", "(<name>)" + trimmedTitle, "$1" + artifact.getConfiguration().getTitle());
+						}
+						else if (Platform.IOS.equals(combo.getSelectionModel().getSelectedItem())) {
+							
+						}
 						
 						// for android we need signatures based on the configured keystore
 						if (Platform.ANDROID.equals(combo.getSelectionModel().getSelectedItem())) {
@@ -426,6 +438,30 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
+		}
+	}
+	
+	private static void replace(FileDirectory projectDirectory, String path, String search, String replace) throws IOException {
+		FileItem configurationChild = (FileItem) ResourceUtils.resolve(projectDirectory, path);
+		if (configurationChild == null) {
+			throw new IllegalStateException("Could not find '" + path + "' in the application root, please clean the cordova application");
+		}
+		ReadableContainer<ByteBuffer> readable = configurationChild.getReadable();
+		byte[] bytes;
+		try {
+			bytes = IOUtils.toBytes(readable);
+		}
+		finally {
+			readable.close();
+		}
+		String config = new String(bytes, "UTF-8");
+		config = config.replaceAll(search, replace);
+		WritableContainer<ByteBuffer> writable = configurationChild.getWritable();
+		try {
+			writable.write(IOUtils.wrap(config.getBytes("UTF-8"), true));
+		}
+		finally {
+			writable.close();
 		}
 	}
 
