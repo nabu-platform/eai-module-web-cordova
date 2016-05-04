@@ -196,13 +196,12 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						File project = new File(folder, artifact.getConfiguration().getName());
 						// ios can break if the title contains whitespace because it uses the name as part of the folder structure to place plugins in
 						// we create the application with a messed up title and replace it later on in post processing with the correct one
-						String trimmedTitle = artifact.getConfiguration().getTitle().replaceAll("[\\s]+", "");
 						// create the project if it doesn't exist yet
 						if (!project.exists()) {
 							logger.info("Creating the application in: " + folder.getAbsolutePath() + " using cordova in: " + cordovaPath);
 							exec(
 								folder.getAbsolutePath(), 
-								new String [] { cordovaPath + "cordova", "create", artifact.getConfiguration().getName(), artifact.getConfiguration().getNamespace(), trimmedTitle }, 
+								new String [] { cordovaPath + "cordova", "create", artifact.getConfiguration().getName(), artifact.getConfiguration().getNamespace(), artifact.getConfiguration().getTitle() }, 
 								null, 
 								properties,
 								outputLog,
@@ -374,15 +373,6 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						}
 						finally {
 							writable.close();
-						}
-
-						// post process title
-						if (Platform.ANDROID.equals(combo.getSelectionModel().getSelectedItem())) {
-							replace(projectDirectory, "platforms/android/res/values/strings.xml", "(<string name=\"app_name\">)" + trimmedTitle, "$1" + artifact.getConfiguration().getTitle());
-							replace(projectDirectory, "platforms/android/res/xml/config.xml", "(<name>)" + trimmedTitle, "$1" + artifact.getConfiguration().getTitle());
-						}
-						else if (Platform.IOS.equals(combo.getSelectionModel().getSelectedItem())) {
-							
 						}
 						
 						// for android we need signatures based on the configured keystore
