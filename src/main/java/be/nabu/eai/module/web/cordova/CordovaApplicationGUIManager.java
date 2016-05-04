@@ -237,7 +237,15 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								@Override
 								public int compare(CordovaPlugin o1, CordovaPlugin o2) {
 									try {
-										return o2.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview") ? 1 : 0;
+										if (o1.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview")) {
+											return -1;
+										}
+										else if (o2.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview")) {
+											return 1;
+										}
+										else {
+											return 0;
+										}
 									}
 									catch (IOException e) {
 										throw new RuntimeException(e);
