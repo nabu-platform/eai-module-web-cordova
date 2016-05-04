@@ -246,7 +246,12 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 								parts.add(cordovaPath + "cordova");
 								parts.add("plugin");
 								parts.add("add");
-								parts.add(plugin.getConfiguration().getName());
+								if (plugin.getConfiguration().getVersion() != null) {
+									parts.add(plugin.getConfiguration().getName() + "@" + plugin.getConfiguration().getVersion());
+								}
+								else {
+									parts.add(plugin.getConfiguration().getName());
+								}
 								if (plugin.getConfiguration().getVariables() != null) {
 									for (String variable : plugin.getConfiguration().getVariables()) {
 										parts.add("--variable");

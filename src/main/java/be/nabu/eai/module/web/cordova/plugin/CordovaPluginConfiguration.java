@@ -6,9 +6,9 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 
 @XmlRootElement(name = "cordovaPlugin")
-@XmlType(propOrder = { "name", "variables" })
+@XmlType(propOrder = { "name", "version", "variables" })
 public class CordovaPluginConfiguration {
-	private String name;
+	private String name, version;
 	private List<String> variables;
 	public String getName() {
 		return name;
@@ -21,5 +21,11 @@ public class CordovaPluginConfiguration {
 	}
 	public void setVariables(List<String> variables) {
 		this.variables = variables;
+	}
+	public String getVersion() {
+		return version;
+	}
+	public void setVersion(String version) {
+		this.version = version;
 	}
 }
