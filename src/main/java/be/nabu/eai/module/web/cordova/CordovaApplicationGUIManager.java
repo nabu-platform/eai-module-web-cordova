@@ -700,9 +700,9 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			new SimpleProperty<byte[]>("Content", byte[].class, true)
 		}));
 		final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, properties);
-		EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, title, new EventHandler<MouseEvent>() {
+		EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, title, new EventHandler<ActionEvent>() {
 			@Override
-			public void handle(MouseEvent arg0) {
+			public void handle(ActionEvent arg0) {
 				byte [] content = updater.getValue("Content");
 				handler.handle(content);
 			}
