@@ -1,5 +1,6 @@
 package be.nabu.eai.module.web.cordova;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -115,9 +116,77 @@ public class CordovaApplicationConfiguration {
 	public void setPlatformVersions(Map<String, String> platformVersions) {
 		this.platformVersions = platformVersions;
 	}
+	
+	public enum ImageType {
+		ICON,
+		SPLASH
+	}
+	
+	public static class Dimension {
+		private int width, height;
+		private ImageType type;
+		public Dimension(int width, int height, ImageType type) {
+			this.width = width;
+			this.height = height;
+			this.type = type;
+		}
+		public int getWidth() {
+			return width;
+		}
+		public int getHeight() {
+			return height;
+		}
+		public ImageType getType() {
+			return type;
+		}
+		public Dimension invert() {
+			return new Dimension(height, width, type);
+		}
+		public boolean isLandscape() {
+			return width > height;
+		}
+		public boolean isPortrait() {
+			return height > width;
+		}
+	}
+	
+	public enum Density {
+		LDPI(new Dimension(36, 36, ImageType.ICON), new Dimension(320, 200, ImageType.SPLASH)),
+		MDPI(new Dimension(48, 48, ImageType.ICON), new Dimension(480, 320, ImageType.SPLASH)), 
+		HDPI(new Dimension(72, 72, ImageType.ICON), new Dimension(800, 480, ImageType.SPLASH)),
+		XHDPI(new Dimension(96, 96, ImageType.ICON), new Dimension(1280, 720, ImageType.SPLASH)),
+		XXHDPI(new Dimension(144, 144, ImageType.ICON), new Dimension(1600, 960, ImageType.SPLASH)),
+		XXXHDPI(new Dimension(192, 192, ImageType.ICON), new Dimension(1920, 1280, ImageType.SPLASH)),
+		XXXXHDPI(new Dimension(384, 384, ImageType.ICON), new Dimension(2560, 1600, ImageType.SPLASH)),
 
+//		IPHONE6(180, 180, )
+		
+		;
+		
+		private Dimension[] dimensions;
+		
+		private Density(Dimension...dimensions) {
+			this.dimensions = dimensions;
+		}
+		public Dimension[] getDimensions() {
+			return dimensions;
+		}
+		public List<Dimension> getDimensions(ImageType type) {
+			List<Dimension> dimensions = new ArrayList<Dimension>();
+			for (Dimension dimension : this.dimensions) {
+				if (dimension.getType() == type) {
+					dimensions.add(dimension);
+					if (dimension.getHeight() != dimension.getWidth()) {
+						dimensions.add(dimension.invert());
+					}
+				}
+			}
+			return dimensions;
+		}
+	}
+	
 	public enum Platform {
-		ANDROID("android"),
+		ANDROID("android", Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI, Density.XXXXHDPI),
 		IOS("ios"),
 		WINDOWS("windows"),
 		BLACKBERRY10("blackberry10"),
@@ -128,13 +197,19 @@ public class CordovaApplicationConfiguration {
 		TIZEN("tizen");
 		
 		private String cordovaName;
+		private Density[] densities;
 
-		private Platform(String cordovaName) {
+		private Platform(String cordovaName, Density...dimensions) {
 			this.cordovaName = cordovaName;
+			this.densities = dimensions;
 		}
 
 		public String getCordovaName() {
 			return cordovaName;
+		}
+
+		public Density[] getDensities() {
+			return densities;
 		}
 	}
 

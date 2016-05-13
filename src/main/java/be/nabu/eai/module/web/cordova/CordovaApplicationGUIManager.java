@@ -1,6 +1,9 @@
 package be.nabu.eai.module.web.cordova;
 
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -9,18 +12,33 @@ import java.io.OutputStream;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+
 import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -30,9 +48,15 @@ import org.slf4j.LoggerFactory;
 
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
+import be.nabu.eai.developer.managers.util.SimpleProperty;
+import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
+import be.nabu.eai.developer.util.EAIDeveloperUtils;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.component.WebComponent;
+import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Density;
+import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Dimension;
+import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.ImageType;
 import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Orientation;
 import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Platform;
 import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
@@ -52,6 +76,8 @@ import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.ResourceUtils;
+import be.nabu.libs.resources.api.ManageableContainer;
+import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.WritableResource;
@@ -91,6 +117,20 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		return "Mobile";
 	}
 
+	private void filterByPlatform(CordovaApplication artifact, Map<String, ?> map) throws IOException {
+		// synchronize the map for the applications
+		List<String> platforms = new ArrayList<String>(map.keySet());
+		for (Platform platform : artifact.getConfiguration().getPlatforms()) {
+			if (!map.containsKey(platform.name())) {
+				map.put(platform.name(), null);
+			}
+			platforms.remove(platform.name());
+		}
+		for (String platform : platforms) {
+			map.remove(platform);
+		}
+	}
+	
 	@Override
 	public void display(MainController controller, AnchorPane pane, CordovaApplication artifact) {
 		try {
@@ -104,18 +144,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			Button runButton = new Button("Run");
 			runButton.disableProperty().bind(combo.getSelectionModel().selectedItemProperty().isNull());
 				
-			// synchronize the map for the applications
-			Map<String, String> platformVersions = artifact.getConfiguration().getPlatformVersions();
-			List<String> platforms = new ArrayList<String>(platformVersions.keySet());
-			for (Platform platform : artifact.getConfiguration().getPlatforms()) {
-				if (!platformVersions.containsKey(platform.name())) {
-					platformVersions.put(platform.name(), null);
-				}
-				platforms.remove(platform.name());
-			}
-			for (String platform : platforms) {
-				platformVersions.remove(platform);
-			}
+			filterByPlatform(artifact, artifact.getConfiguration().getPlatformVersions());
 			
 			final TextArea outputLog = new TextArea();
 			final TextArea errorLog = new TextArea();
@@ -230,6 +259,14 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						// same for the plugins
 						if (artifact.getConfiguration().getPlugins() != null) {
 							List<CordovaPlugin> plugins = new ArrayList<CordovaPlugin>(artifact.getConfiguration().getPlugins());
+							
+							// always add the splash plugin
+							// could limit this to only when you have splash images...
+							CordovaPlugin splashPlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
+							splashPlugin.getConfiguration().setName("cordova-plugin-splashscreen");
+							splashPlugin.getConfiguration().setVersion("3.2.2");
+							plugins.add(splashPlugin);
+							
 							// crosswalk does NOT play nice with other plugins, it has to be added _first_ before others otherwise you get strange behavior:
 							// we have seen "VERSION DOWNGRADE"
 							// we have seen "DUPLICATE PERMISSION"
@@ -370,6 +407,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						config = config.replaceAll("(?s)<preference name=\"Orientation\"[^>]+/>", "");
 						// add new option
 						config = config.replaceAll("(?s)(</widget>)", "\t<preference name=\"Orientation\" value=\"" + (artifact.getConfiguration().getOrientation() != null ? artifact.getConfiguration().getOrientation().getCordovaName() : Orientation.BOTH.getCordovaName()) + "\" />\n$1");
+						
+						// add images if required
+						config = addImages(config, artifact, wwwDirectory, combo.getSelectionModel().getSelectedItem());
+						
 						WritableContainer<ByteBuffer> writable = configurationChild.getWritable();
 						try {
 							writable.write(IOUtils.wrap(config.getBytes("UTF-8"), true));
@@ -425,21 +466,228 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						logger.error("Could not run application", e);
 					}
 				}
+
+				
 			});
 			
 			buttons.getChildren().addAll(combo, runButton);
 			AnchorPane anchor = new AnchorPane();
 			display(artifact, anchor);
 			vbox.getChildren().addAll(buttons, anchor, outputLog, errorLog);
-			AnchorPane.setLeftAnchor(vbox, 0d);
-			AnchorPane.setRightAnchor(vbox, 0d);
-			AnchorPane.setTopAnchor(vbox, 0d);
-			AnchorPane.setBottomAnchor(vbox, 0d);
-			pane.getChildren().add(vbox);
+			
+			if (artifact.getConfiguration().getPlatforms() != null) {
+				ResourceContainer<?> iconFolder = ResourceUtils.mkdirs(artifact.getDirectory(), EAIResourceRepository.PRIVATE + "/icon");
+				ResourceContainer<?> splashFolder = ResourceUtils.mkdirs(artifact.getDirectory(), EAIResourceRepository.PRIVATE + "/splash");
+				VBox imageBox = new VBox();
+				for (Platform platform : artifact.getConfiguration().getPlatforms()) {
+					// icons
+					HBox iconBox = new HBox();
+					Button setIcon = new Button("Set Icon");
+					Resource iconChild = iconFolder.getChild(platform.name() + ".png");
+					setIcon.addEventHandler(ActionEvent.ANY, new EventHandler<Event>() {
+						@Override
+						public void handle(Event event) {
+							getImage("Set icon for " + platform.name(), new ImageHandlerImplementation(iconFolder, platform.name() + ".png", "image/png"));
+						}
+					});
+					Button deleteIcon = new Button("Delete Icon");
+					deleteIcon.addEventHandler(ActionEvent.ANY, new ImageDeletionHandler(iconFolder, platform.name() + ".png"));
+					iconBox.getChildren().addAll(setIcon, deleteIcon);
+					imageBox.getChildren().addAll(new Separator(), new Label("Icon for: " + platform.name()), iconBox);
+					if (iconChild != null) {
+						InputStream input = IOUtils.toInputStream(((ReadableResource) iconChild).getReadable());
+						try {
+							iconBox.getChildren().add(new ImageView(new Image(input)));
+						}
+						finally {
+							input.close();
+						}
+					}
+					
+					// splash screens
+					HBox splashBox = new HBox();
+					Button setSplash = new Button("Set Splash Image");
+					Resource splashChild = splashFolder.getChild(platform.name() + ".png");
+					setSplash.addEventHandler(ActionEvent.ANY, new EventHandler<Event>() {
+						@Override
+						public void handle(Event event) {
+							getImage("Set splash image for " + platform.name(), new ImageHandlerImplementation(splashFolder, platform.name() + ".png", "image/png"));
+						}
+					});
+					Button deleteSplash = new Button("Delete Splash Image");
+					deleteSplash.addEventHandler(ActionEvent.ANY, new ImageDeletionHandler(splashFolder, platform.name() + ".png"));
+					splashBox.getChildren().addAll(setSplash, deleteSplash);
+					imageBox.getChildren().addAll(new Separator(), new Label("Splash image for: " + platform.name()), splashBox);
+					if (splashChild != null) {
+						InputStream input = IOUtils.toInputStream(((ReadableResource) splashChild).getReadable());
+						try {
+							splashBox.getChildren().add(new ImageView(new Image(input)));
+						}
+						finally {
+							input.close();
+						}
+					}
+				}
+				vbox.getChildren().add(imageBox);
+			}
+			
+			ScrollPane scroll = new ScrollPane();
+			scroll.setContent(vbox);
+			vbox.prefWidthProperty().bind(scroll.widthProperty().subtract(50));
+			AnchorPane.setLeftAnchor(scroll, 0d);
+			AnchorPane.setRightAnchor(scroll, 0d);
+			AnchorPane.setTopAnchor(scroll, 0d);
+			AnchorPane.setBottomAnchor(scroll, 0d);
+			pane.getChildren().add(scroll);
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	// type is "icon" or "splash"
+	private String addImages(String config, CordovaApplication artifact, ResourceContainer<?> www, Platform platform) throws IOException {
+		for (ImageType type : ImageType.values()) {
+			Resource resolved = ResourceUtils.resolve(artifact.getDirectory(), EAIResourceRepository.PRIVATE + "/" + type.name().toLowerCase() + "/" + platform.name() + ".png");
+			if (resolved != null) {
+				ReadableContainer<ByteBuffer> readable = ((ReadableResource) resolved).getReadable();
+				BufferedImage image;
+				try {
+					image = ImageIO.read(IOUtils.toInputStream(readable));
+				}
+				finally {
+					readable.close();
+				}
+				Iterator<ImageWriter> writers = ImageIO.getImageWritersByMIMEType("image/png");
+				if (!writers.hasNext()) {
+					throw new IllegalArgumentException("No handler for the content type: image/png");
+				}
+				ImageWriter writer = writers.next();
+				String replacement = "\t<platform name=\"" + platform.getCordovaName() + "\">\n";
+				for (Density density : platform.getDensities()) {
+					for (Dimension dimension : density.getDimensions(type)) {
+						// find biggest division
+						byte[] bytes = resize(image, writer, dimension);
+						String fileName = "resources/platform/" + type.name().toLowerCase() + "/" + platform.getCordovaName() + "." + dimension.getWidth() + "x" + dimension.getHeight() + ".png";
+						Resource touch = ResourceUtils.touch(www, fileName);
+						WritableContainer<ByteBuffer> writable = ((WritableResource) touch).getWritable();
+						try {
+							writable.write(IOUtils.wrap(bytes, true));
+						}
+						finally {
+							writable.close();
+						}
+						String name = "";
+						if (dimension.isLandscape()) {
+							name = "land-";
+						}
+						else if (dimension.isPortrait()) {
+							name = "port-";
+						}
+						name += density.name().toLowerCase();
+						replacement += "\t\t<" + type.name().toLowerCase() + " src=\"" + fileName + "\" density=\"" + name + "\" width=\"" + dimension.getWidth() + "\" height=\"" + dimension.getHeight() + "\"/>\n";
+					}
+				}
+				replacement += "\t</platform>\n";
+				config = config.replaceAll("(?s)(</widget>)", replacement + "$1");
+			}
+		}
+		return config;
+	}
+
+	private byte[] resize(BufferedImage image, ImageWriter writer, Dimension dimension) throws IOException {
+		double factor = Math.max((double) image.getWidth() / (double) dimension.getWidth(), (double) image.getHeight() / (double) dimension.getHeight());
+		double targetWidth = (double) image.getWidth() / factor;
+		double targetHeight = (double) image.getHeight() / factor;
+		BufferedImage resizedImage = new BufferedImage((int) targetWidth, (int) targetHeight, image.getType());
+		Graphics2D graphics = resizedImage.createGraphics();
+		graphics.drawImage(image, 0, 0, (int) targetWidth, (int) targetHeight, null);
+		graphics.dispose();
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		ImageOutputStream imageOutput = ImageIO.createImageOutputStream(output);
+		writer.setOutput(imageOutput);
+		writer.write(resizedImage);
+		return output.toByteArray();
+	}
+	
+	private final class ImageDeletionHandler implements EventHandler<Event> {
+		
+		private ResourceContainer<?> folder;
+		private String name;
+
+		public ImageDeletionHandler(ResourceContainer<?> folder, String name) {
+			this.folder = folder;
+			this.name = name;
+		}
+
+		@Override
+		public void handle(Event arg0) {
+			Resource child = folder.getChild(name);
+			if (child != null) {
+				try {
+					((ManageableContainer<?>) folder).delete(child.getName());
+					MainController.getInstance().setChanged();
+				}
+				catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		}
+	}
+
+	private final class ImageHandlerImplementation implements ImageHandler {
+		
+		private ResourceContainer<?> folder;
+		private String name;
+		private String contentType;
+
+		public ImageHandlerImplementation(ResourceContainer<?> folder, String name, String contentType) {
+			this.folder = folder;
+			this.name = name;
+			this.contentType = contentType;
+		}
+
+		@Override
+		public void handle(byte[] bytes) {
+			try {
+				if (bytes != null) {
+					Resource target = folder.getChild(name);
+					if (target == null) {
+						target = ((ManageableContainer<?>) folder).create(name, contentType);
+					}
+					WritableContainer<ByteBuffer> writable = ((WritableResource) target).getWritable();
+					try {
+						writable.write(IOUtils.wrap(bytes, true));
+						MainController.getInstance().setChanged();
+					}
+					finally {
+						writable.close();
+					}
+				}
+			}
+			catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	public static interface ImageHandler {
+		public void handle(byte[] bytes);
+	}
+	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private void getImage(String title, final ImageHandler handler) {
+		Set properties = new LinkedHashSet(Arrays.asList(new Property [] {
+			new SimpleProperty<byte[]>("Content", byte[].class, true)
+		}));
+		final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, properties);
+		EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, title, new EventHandler<MouseEvent>() {
+			@Override
+			public void handle(MouseEvent arg0) {
+				byte [] content = updater.getValue("Content");
+				handler.handle(content);
+			}
+		});
 	}
 	
 	private static void replace(FileDirectory projectDirectory, String path, String search, String replace) throws IOException {
