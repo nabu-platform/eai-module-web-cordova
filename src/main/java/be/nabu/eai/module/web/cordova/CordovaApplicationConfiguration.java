@@ -157,10 +157,17 @@ public class CordovaApplicationConfiguration {
 		XHDPI(new Dimension(96, 96, ImageType.ICON), new Dimension(1280, 720, ImageType.SPLASH)),
 		XXHDPI(new Dimension(144, 144, ImageType.ICON), new Dimension(1600, 960, ImageType.SPLASH)),
 		XXXHDPI(new Dimension(192, 192, ImageType.ICON), new Dimension(1920, 1280, ImageType.SPLASH)),
+		// currently not supported as of cordova 6.1.1
 		XXXXHDPI(new Dimension(384, 384, ImageType.ICON), new Dimension(2560, 1600, ImageType.SPLASH)),
 
-//		IPHONE6(180, 180, )
-		
+		// https://developer.apple.com/library/ios/documentation/UserExperience/Conceptual/MobileHIG/IconMatrix.html
+		IPHONE4(new Dimension(57, 57, ImageType.ICON), new Dimension(114, 114, ImageType.ICON), new Dimension(480, 320, ImageType.SPLASH)),
+		IPHONE4_RETINA(new Dimension(114, 114, ImageType.ICON), new Dimension(960, 640, ImageType.SPLASH)),
+		IPHONE5(new Dimension(60, 60, ImageType.ICON), new Dimension(120, 120, ImageType.ICON), new Dimension(1136, 640, ImageType.SPLASH)),
+		IPHONE6(new Dimension(180, 180, ImageType.ICON), new Dimension(2208, 1242, ImageType.SPLASH), new Dimension(1334, 750, ImageType.SPLASH)),
+		IPAD(new Dimension(76, 76, ImageType.ICON), new Dimension(72, 72, ImageType.ICON), new Dimension(152, 152, ImageType.ICON), new Dimension(144, 144, ImageType.ICON), new Dimension(1024, 768, ImageType.SPLASH)),
+		IPHONE_SPOTLIGHT(new Dimension(29, 29, ImageType.ICON), new Dimension(58, 58, ImageType.ICON)),
+		IPAD_SPOTLIGHT(new Dimension(50, 50, ImageType.ICON), new Dimension(100, 100, ImageType.ICON)),
 		;
 		
 		private Dimension[] dimensions;
@@ -187,7 +194,7 @@ public class CordovaApplicationConfiguration {
 	
 	public enum Platform {
 		ANDROID("android", true, Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI),
-		IOS("ios", false),
+		IOS("ios", false, Density.IPHONE4, Density.IPHONE4_RETINA, Density.IPHONE5, Density.IPHONE6, Density.IPAD, Density.IPHONE_SPOTLIGHT, Density.IPAD_SPOTLIGHT),
 		WINDOWS("windows", false),
 		BLACKBERRY10("blackberry10", false),
 		FIRE_OS("fireos", false),
