@@ -186,7 +186,7 @@ public class CordovaApplicationConfiguration {
 	}
 	
 	public enum Platform {
-		ANDROID("android", true, Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI, Density.XXXXHDPI),
+		ANDROID("android", true, Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI),
 		IOS("ios", false),
 		WINDOWS("windows", false),
 		BLACKBERRY10("blackberry10", false),
