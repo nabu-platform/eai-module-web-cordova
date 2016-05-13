@@ -100,6 +100,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 
 	public CordovaApplicationGUIManager() {
 		super("Cordova Application", CordovaApplication.class, new CordovaApplicationManager(), CordovaApplicationConfiguration.class);
+		MainController.registerStyleSheet("cordova.css");
 	}
 
 	@Override
@@ -135,7 +136,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 	public void display(MainController controller, AnchorPane pane, CordovaApplication artifact) {
 		try {
 			VBox vbox = new VBox();
+			vbox.getStyleClass().add("content");
+			vbox.getStyleClass().add("cordova");
 			HBox buttons = new HBox();
+			buttons.getStyleClass().add("buttons");
 			
 			ComboBox<Platform> combo = new ComboBox<Platform>();
 			if (artifact.getConfiguration().getPlatforms() != null) {
@@ -150,6 +154,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			final TextArea errorLog = new TextArea();
 			
 			runButton.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+				@SuppressWarnings("resource")
 				@Override
 				public void handle(ActionEvent arg0) {
 					try {
@@ -322,8 +327,6 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						}
 						
 						logger.info("Cleaning the www directory");
-						// clean the www folder (TODO: do a smart merge for performance reasons)
-						File www = new File(project, "www");
 						FileDirectory projectDirectory = new FileDirectory(null, project, false);
 						projectDirectory.delete("www");
 						FileDirectory wwwDirectory = (FileDirectory) projectDirectory.create("www", Resource.CONTENT_TYPE_DIRECTORY);
@@ -479,9 +482,11 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				ResourceContainer<?> iconFolder = ResourceUtils.mkdirs(artifact.getDirectory(), EAIResourceRepository.PRIVATE + "/icon");
 				ResourceContainer<?> splashFolder = ResourceUtils.mkdirs(artifact.getDirectory(), EAIResourceRepository.PRIVATE + "/splash");
 				VBox imageBox = new VBox();
+				imageBox.getStyleClass().add("images");
 				for (Platform platform : artifact.getConfiguration().getPlatforms()) {
 					// icons
-					HBox iconBox = new HBox();
+					HBox iconButtons = new HBox();
+					iconButtons.getStyleClass().add("buttons");
 					Button setIcon = new Button("Set Icon");
 					Resource iconChild = iconFolder.getChild(platform.name() + ".png");
 					setIcon.addEventHandler(ActionEvent.ANY, new EventHandler<Event>() {
@@ -492,12 +497,17 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					});
 					Button deleteIcon = new Button("Delete Icon");
 					deleteIcon.addEventHandler(ActionEvent.ANY, new ImageDeletionHandler(iconFolder, platform.name() + ".png"));
-					iconBox.getChildren().addAll(setIcon, deleteIcon);
-					imageBox.getChildren().addAll(new Separator(), new Label("Icon for: " + platform.name()), iconBox);
+					iconButtons.getChildren().addAll(setIcon, deleteIcon);
+					Label iconLabel = new Label("Icon for: " + platform.name());
+					iconLabel.getStyleClass().add("title");
+					imageBox.getChildren().addAll(new Separator(), iconLabel, iconButtons);
 					if (iconChild != null) {
 						InputStream input = IOUtils.toInputStream(((ReadableResource) iconChild).getReadable());
 						try {
-							iconBox.getChildren().add(new ImageView(new Image(input)));
+							ImageView imageView = new ImageView(new Image(input));
+							imageView.fitWidthProperty().set(200);
+							imageView.setPreserveRatio(true);
+							imageBox.getChildren().add(imageView);
 						}
 						finally {
 							input.close();
@@ -505,7 +515,8 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					}
 					
 					// splash screens
-					HBox splashBox = new HBox();
+					HBox splashButtons = new HBox();
+					splashButtons.getStyleClass().add("buttons");
 					Button setSplash = new Button("Set Splash Image");
 					Resource splashChild = splashFolder.getChild(platform.name() + ".png");
 					setSplash.addEventHandler(ActionEvent.ANY, new EventHandler<Event>() {
@@ -516,12 +527,17 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					});
 					Button deleteSplash = new Button("Delete Splash Image");
 					deleteSplash.addEventHandler(ActionEvent.ANY, new ImageDeletionHandler(splashFolder, platform.name() + ".png"));
-					splashBox.getChildren().addAll(setSplash, deleteSplash);
-					imageBox.getChildren().addAll(new Separator(), new Label("Splash image for: " + platform.name()), splashBox);
+					splashButtons.getChildren().addAll(setSplash, deleteSplash);
+					Label splashLabel = new Label("Splash image for: " + platform.name());
+					splashLabel.getStyleClass().add("title");
+					imageBox.getChildren().addAll(new Separator(), splashLabel, splashButtons);
 					if (splashChild != null) {
 						InputStream input = IOUtils.toInputStream(((ReadableResource) splashChild).getReadable());
 						try {
-							splashBox.getChildren().add(new ImageView(new Image(input)));
+							ImageView imageView = new ImageView(new Image(input));
+							imageView.fitWidthProperty().set(200);
+							imageView.setPreserveRatio(true);
+							imageBox.getChildren().add(imageView);
 						}
 						finally {
 							input.close();
@@ -693,6 +709,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		});
 	}
 	
+	@SuppressWarnings("unused")
 	private static void replace(FileDirectory projectDirectory, String path, String search, String replace) throws IOException {
 		FileItem configurationChild = (FileItem) ResourceUtils.resolve(projectDirectory, path);
 		if (configurationChild == null) {
