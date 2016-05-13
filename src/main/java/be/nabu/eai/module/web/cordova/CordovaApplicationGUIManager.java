@@ -585,6 +585,9 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 							name = "port-";
 						}
 						name += density.name().toLowerCase();
+						if (platform.useFullPath()) {
+							fileName = "www/" + fileName;
+						}
 						replacement += "\t\t<" + type.name().toLowerCase() + " src=\"" + fileName + "\" density=\"" + name + "\" width=\"" + dimension.getWidth() + "\" height=\"" + dimension.getHeight() + "\"/>\n";
 					}
 				}

@@ -186,21 +186,23 @@ public class CordovaApplicationConfiguration {
 	}
 	
 	public enum Platform {
-		ANDROID("android", Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI, Density.XXXXHDPI),
-		IOS("ios"),
-		WINDOWS("windows"),
-		BLACKBERRY10("blackberry10"),
-		FIRE_OS("fireos"),
-		FIREFOX_OS("firefoxos"),
-		UBUNTU("ubuntu"),
-		WEB_OS("webos"),
-		TIZEN("tizen");
+		ANDROID("android", true, Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI, Density.XXXXHDPI),
+		IOS("ios", false),
+		WINDOWS("windows", false),
+		BLACKBERRY10("blackberry10", false),
+		FIRE_OS("fireos", false),
+		FIREFOX_OS("firefoxos", false),
+		UBUNTU("ubuntu", false),
+		WEB_OS("webos", false),
+		TIZEN("tizen", false);
 		
 		private String cordovaName;
 		private Density[] densities;
+		private boolean useFullPath;
 
-		private Platform(String cordovaName, Density...dimensions) {
+		private Platform(String cordovaName, boolean useFullPath, Density...dimensions) {
 			this.cordovaName = cordovaName;
+			this.useFullPath = useFullPath;
 			this.densities = dimensions;
 		}
 
@@ -210,6 +212,10 @@ public class CordovaApplicationConfiguration {
 
 		public Density[] getDensities() {
 			return densities;
+		}
+		
+		public boolean useFullPath() {
+			return useFullPath;
 		}
 	}
 
