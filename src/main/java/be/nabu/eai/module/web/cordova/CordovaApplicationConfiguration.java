@@ -194,7 +194,7 @@ public class CordovaApplicationConfiguration {
 	
 	public enum Platform {
 		ANDROID("android", true, Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI),
-		IOS("ios", false, Density.IPHONE4, Density.IPHONE4_RETINA, Density.IPHONE5, Density.IPHONE6, Density.IPAD, Density.IPHONE_SPOTLIGHT, Density.IPAD_SPOTLIGHT),
+		IOS("ios", true, Density.IPHONE4, Density.IPHONE4_RETINA, Density.IPHONE5, Density.IPHONE6, Density.IPAD, Density.IPHONE_SPOTLIGHT, Density.IPAD_SPOTLIGHT),
 		WINDOWS("windows", false),
 		BLACKBERRY10("blackberry10", false),
 		FIRE_OS("fireos", false),
