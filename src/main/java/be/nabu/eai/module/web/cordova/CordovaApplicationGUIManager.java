@@ -31,6 +31,7 @@ import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -145,7 +146,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			if (artifact.getConfiguration().getPlatforms() != null) {
 				combo.getItems().addAll(artifact.getConfiguration().getPlatforms());
 			}
+			CheckBox release = new CheckBox("As Final Version");
+			release.setSelected(false);
 			Button runButton = new Button("Run");
+			statusBox = new HBox();
 			runButton.disableProperty().bind(combo.getSelectionModel().selectedItemProperty().isNull());
 				
 			filterByPlatform(artifact, artifact.getConfiguration().getPlatformVersions());
@@ -434,16 +438,23 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 									artifact.getConfiguration().getKeystore().getKeyStore().save(new FileItem(null, keystore, false));
 								}
 								// now run it
+								List<String> commands = new ArrayList<String>(Arrays.asList(new String [] { 
+									cordovaPath + "cordova", 
+									"run", 
+									combo.getSelectionModel().getSelectedItem().getCordovaName(),
+//									"--release",
+									"--",
+									"--keystore=keystore.jks", 
+									"--storePassword=" + artifact.getConfiguration().getKeystore().getConfiguration().getPassword(),
+									"--alias=" + artifact.getConfiguration().getSignatureAlias(),
+									"--password=" + artifact.getConfiguration().getKeystore().getConfiguration().getKeyPasswords().get(artifact.getConfiguration().getSignatureAlias())
+								}));
+								if (release.isSelected()) {
+									commands.add(3, "--release");
+								}
 								exec(
 									project.getAbsolutePath(),
-									new String [] { cordovaPath + "cordova", "run", combo.getSelectionModel().getSelectedItem().getCordovaName(),
-//										"--release",
-										"--",
-										"--keystore=keystore.jks", 
-										"--storePassword=" + artifact.getConfiguration().getKeystore().getConfiguration().getPassword(),
-										"--alias=" + artifact.getConfiguration().getSignatureAlias(),
-										"--password=" + artifact.getConfiguration().getKeystore().getConfiguration().getKeyPasswords().get(artifact.getConfiguration().getSignatureAlias())},
-										// can also set the private key password using "--password=password"
+									commands.toArray(new String[commands.size()]),
 									null,
 									properties,
 									outputLog,
@@ -469,11 +480,9 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						logger.error("Could not run application", e);
 					}
 				}
-
-				
 			});
 			
-			buttons.getChildren().addAll(combo, runButton);
+			buttons.getChildren().addAll(combo, release, runButton, statusBox);
 			AnchorPane anchor = new AnchorPane();
 			display(artifact, anchor);
 			vbox.getChildren().addAll(buttons, anchor, outputLog, errorLog);
@@ -735,8 +744,16 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 	}
 
 	private Thread errorThread, outputThread;
+	private HBox statusBox;
 	
 	private void exec(String directory, String [] commands, List<byte[]> inputContents, List<SystemProperty> systemProperties, final TextArea outputTarget, final TextArea errorTarget, boolean waitFor) throws IOException, InterruptedException {
+		javafx.application.Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				statusBox.getChildren().clear();
+				statusBox.getChildren().add(MainController.loadGraphic("status/running.png"));
+			}
+		});
 		if (!directory.endsWith("/")) {
 			directory += "/";
 		}
@@ -773,10 +790,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				output.close();
 			}
 		}
-		errorThread = new Thread(new InputCopier(process.getErrorStream(), errorTarget));
+		errorThread = new Thread(new InputCopier(process.getErrorStream(), errorTarget, null));
 		errorThread.start();
 		
-		outputThread = new Thread(new InputCopier(process.getInputStream(), outputTarget));
+		outputThread = new Thread(new InputCopier(process.getInputStream(), outputTarget, process));
 		outputThread.start();
 		
 		if (waitFor) {
@@ -819,10 +836,12 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 	private final class InputCopier implements Runnable {
 		private final TextArea target;
 		private InputStream input;
+		private Process process;
 
-		private InputCopier(InputStream input, TextArea target) {
+		private InputCopier(InputStream input, TextArea target, Process process) {
 			this.input = input;
 			this.target = target;
+			this.process = process;
 		}
 
 		@Override
@@ -852,6 +871,20 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						// do nothing
 					}
 				});
+				if (process != null) {
+					javafx.application.Platform.runLater(new Runnable() {
+						@Override
+						public void run() {
+							statusBox.getChildren().clear();
+							if (process.exitValue() == 0) {
+								statusBox.getChildren().add(MainController.loadGraphic("status/success.png"));
+							}
+							else {
+								statusBox.getChildren().add(MainController.loadGraphic("status/failed.png"));
+							}
+						}
+					});
+				}
 			}
 			catch (IOException e) {
 				e.printStackTrace();
