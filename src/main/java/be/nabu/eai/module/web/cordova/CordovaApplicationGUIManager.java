@@ -370,6 +370,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						}
 						Map<String, String> environment = new HashMap<String, String>();
 						environment.put("mobile", "true");
+						environment.put("platform", combo.getSelectionModel().getSelectedItem().getCordovaName());
+						if (version != null && !version.isEmpty()) {
+							environment.put("platformVersion", version);
+						}
 						environment.put("web", "false");
 						environment.put("url", host);
 						environment.put("host", hostName);
