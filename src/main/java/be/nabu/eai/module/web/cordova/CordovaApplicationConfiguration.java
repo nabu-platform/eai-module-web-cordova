@@ -16,7 +16,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.util.KeyValueMapAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
-@XmlType(propOrder = {"namespace", "name", "title", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation" })
+@XmlType(propOrder = {"namespace", "name", "title", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
 public class CordovaApplicationConfiguration {
 	
 	private String name, namespace, title;
