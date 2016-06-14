@@ -33,6 +33,8 @@ public class CordovaApplicationConfiguration {
 	private Orientation orientation;
 	
 	private Map<String, String> platformVersions;
+	
+	private Boolean disableOverscroll;
 
 	public String getName() {
 		return name;
@@ -104,6 +106,13 @@ public class CordovaApplicationConfiguration {
 	}
 	public void setOrientation(Orientation orientation) {
 		this.orientation = orientation;
+	}
+	
+	public Boolean getDisableOverscroll() {
+		return disableOverscroll;
+	}
+	public void setDisableOverscroll(Boolean disableOverscroll) {
+		this.disableOverscroll = disableOverscroll;
 	}
 	
 	@XmlJavaTypeAdapter(value = KeyValueMapAdapter.class)

@@ -418,7 +418,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 						config = config.replaceAll("(?s)<preference name=\"Orientation\"[^>]+/>", "");
 						// add new option
 						config = config.replaceAll("(?s)(</widget>)", "\t<preference name=\"Orientation\" value=\"" + (artifact.getConfiguration().getOrientation() != null ? artifact.getConfiguration().getOrientation().getCordovaName() : Orientation.BOTH.getCordovaName()) + "\" />\n$1");
-						
+						// add option for disallow overscroll
+						if (artifact.getConfiguration().getDisableOverscroll() != null && artifact.getConfiguration().getDisableOverscroll()) {
+							config = config.replaceAll("(?s)(</widget>)", "\t<preference name=\"DisallowOverscroll\" value=\"true\" />\n$1");
+						}
 						// add images if required
 						config = addImages(config, artifact, wwwDirectory, combo.getSelectionModel().getSelectedItem());
 						
