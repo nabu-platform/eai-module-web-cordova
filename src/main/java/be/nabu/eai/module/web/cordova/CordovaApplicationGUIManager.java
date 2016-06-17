@@ -522,6 +522,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			if (artifact.getConfiguration().getDisableOverscroll() != null && artifact.getConfiguration().getDisableOverscroll()) {
 				config = config.replaceAll("(?s)(</widget>)", "\t<preference name=\"DisallowOverscroll\" value=\"true\" />\n$1");
 			}
+			// update version if set
+			if (artifact.getConfiguration().getVersion() != null) {
+				config = config.replaceAll("(?s)(<widget[^>]+version[\\s]*=[\\s]*)(?:'|\")[^'\"]+(?:'|\")", "$1\"" + artifact.getConfiguration().getVersion() + "\"");
+			}
 			// add images if required
 			config = addImages(config, artifact, wwwDirectory, targetPlatform);
 			

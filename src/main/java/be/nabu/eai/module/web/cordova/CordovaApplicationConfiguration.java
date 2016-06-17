@@ -16,10 +16,10 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.util.KeyValueMapAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
-@XmlType(propOrder = {"namespace", "name", "title", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
+@XmlType(propOrder = {"namespace", "name", "title", "version", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
 public class CordovaApplicationConfiguration {
 	
-	private String name, namespace, title;
+	private String name, namespace, title, version;
 	
 	private List<Platform> platforms;
 	
@@ -56,7 +56,14 @@ public class CordovaApplicationConfiguration {
 	public void setTitle(String title) {
 		this.title = title;
 	}
-
+	
+	public String getVersion() {
+		return version;
+	}
+	public void setVersion(String version) {
+		this.version = version;
+	}
+	
 	public List<Platform> getPlatforms() {
 		return platforms;
 	}
