@@ -39,7 +39,6 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -122,11 +121,13 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 	private void filterByPlatform(CordovaApplication artifact, Map<String, ?> map) throws IOException {
 		// synchronize the map for the applications
 		List<String> platforms = new ArrayList<String>(map.keySet());
-		for (Platform platform : artifact.getConfiguration().getPlatforms()) {
-			if (!map.containsKey(platform.name())) {
-				map.put(platform.name(), null);
+		if (artifact.getConfiguration().getPlatforms() != null) {
+			for (Platform platform : artifact.getConfiguration().getPlatforms()) {
+				if (!map.containsKey(platform.name())) {
+					map.put(platform.name(), null);
+				}
+				platforms.remove(platform.name());
 			}
-			platforms.remove(platform.name());
 		}
 		for (String platform : platforms) {
 			map.remove(platform);
@@ -274,7 +275,10 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			}
 			String androidHome = MainController.getProperties().getProperty("ANDROID_HOME", System.getProperty("ANDROID_HOME", System.getenv("ANDROID_HOME")));
 			List<SystemProperty> properties = new ArrayList<SystemProperty>();
-			SystemProperty systemProperty = new SystemProperty("PATH", (nodePath == null ? "" : nodePath + System.getProperty("path.separator")) + System.getenv("PATH"));
+			SystemProperty systemProperty = new SystemProperty("PATH", (nodePath == null ? "" : nodePath + System.getProperty("path.separator"))
+				// apparently android platform tools has to be on the path as well for the VMs to work, otherwise the VM might start up but the app is not loaded
+				+ (androidHome == null ? "" : androidHome + "/platform-tools" + System.getProperty("path.separator"))
+				+ System.getenv("PATH"));
 			properties.add(systemProperty);
 			if (androidHome != null) {
 				properties.add(new SystemProperty("ANDROID_HOME", androidHome));
@@ -369,12 +373,31 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			if (artifact.getConfiguration().getPlugins() != null) {
 				List<CordovaPlugin> plugins = new ArrayList<CordovaPlugin>(artifact.getConfiguration().getPlugins());
 				
-				// always add the splash plugin
-				// could limit this to only when you have splash images...
-				CordovaPlugin splashPlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
-				splashPlugin.getConfiguration().setName("cordova-plugin-splashscreen");
-				splashPlugin.getConfiguration().setVersion("3.2.2");
-				plugins.add(splashPlugin);
+				
+				boolean hasSplash = false;
+				boolean hasFile = false;
+				for (CordovaPlugin plugin : plugins) {
+					if ("cordova-plugin-file".equals(plugin.getConfiguration().getName())) {
+						hasFile = true;
+					}
+					else if ("cordova-plugin-splashscreen".equals(plugin.getConfiguration().getName())) {
+						hasSplash = true;
+					}
+				}
+				if (!hasSplash) {
+					// always add the splash plugin
+					// could limit this to only when you have splash images...
+					CordovaPlugin splashPlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
+					splashPlugin.getConfiguration().setName("cordova-plugin-splashscreen");
+					splashPlugin.getConfiguration().setVersion("3.2.2");
+					plugins.add(splashPlugin);
+				}
+				if (!hasFile) {
+					// it seems that we _always_ need the cordova-plugin-file plugin? when installing without it (on vm at least) it threw an exception that it could not access the /.../www/index.html file
+					CordovaPlugin filePlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
+					filePlugin.getConfiguration().setName("cordova-plugin-file");
+					plugins.add(filePlugin);
+				}
 				
 				// crosswalk does NOT play nice with other plugins, it has to be added _first_ before others otherwise you get strange behavior:
 				// we have seen "VERSION DOWNGRADE"
