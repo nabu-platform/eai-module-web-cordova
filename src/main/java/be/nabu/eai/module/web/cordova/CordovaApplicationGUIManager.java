@@ -370,89 +370,89 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			);
 			// TODO: clean plugins every time (it will NOT override update variable properties)
 			// same for the plugins
+			List<CordovaPlugin> plugins = new ArrayList<CordovaPlugin>();
+
 			if (artifact.getConfiguration().getPlugins() != null) {
-				List<CordovaPlugin> plugins = new ArrayList<CordovaPlugin>(artifact.getConfiguration().getPlugins());
-				
-				
-				boolean hasSplash = false;
-				boolean hasFile = false;
-				for (CordovaPlugin plugin : plugins) {
-					if ("cordova-plugin-file".equals(plugin.getConfiguration().getName())) {
-						hasFile = true;
-					}
-					else if ("cordova-plugin-splashscreen".equals(plugin.getConfiguration().getName())) {
-						hasSplash = true;
-					}
+				plugins.addAll(artifact.getConfiguration().getPlugins());
+			}
+			boolean hasSplash = false;
+			boolean hasFile = false;
+			for (CordovaPlugin plugin : plugins) {
+				if ("cordova-plugin-file".equals(plugin.getConfiguration().getName())) {
+					hasFile = true;
 				}
-				if (!hasSplash) {
-					// always add the splash plugin
-					// could limit this to only when you have splash images...
-					CordovaPlugin splashPlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
-					splashPlugin.getConfiguration().setName("cordova-plugin-splashscreen");
-					splashPlugin.getConfiguration().setVersion("3.2.2");
-					plugins.add(splashPlugin);
-				}
-				if (!hasFile) {
-					// it seems that we _always_ need the cordova-plugin-file plugin? when installing without it (on vm at least) it threw an exception that it could not access the /.../www/index.html file
-					CordovaPlugin filePlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
-					filePlugin.getConfiguration().setName("cordova-plugin-file");
-					plugins.add(filePlugin);
-				}
-				
-				// crosswalk does NOT play nice with other plugins, it has to be added _first_ before others otherwise you get strange behavior:
-				// we have seen "VERSION DOWNGRADE"
-				// we have seen "DUPLICATE PERMISSION"
-				// once those were resolved by removing the application from the device, we deployed and got an error that "device ready" did not fire within 5 seconds and got an empty screen
-				// by rebuilding with that plugin first, we got a decent deployment
-				Collections.sort(plugins, new Comparator<CordovaPlugin>() {
-					@Override
-					public int compare(CordovaPlugin o1, CordovaPlugin o2) {
-						try {
-							if (o1.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview")) {
-								return -1;
-							}
-							else if (o2.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview")) {
-								return 1;
-							}
-							else {
-								return 0;
-							}
-						}
-						catch (IOException e) {
-							throw new RuntimeException(e);
-						}
-					}
-				});
-				for (CordovaPlugin plugin : plugins) {
-					List<String> parts = new ArrayList<String>();
-					parts.add(cordovaPath + "cordova");
-					parts.add("plugin");
-					parts.add("add");
-					if (plugin.getConfiguration().getVersion() != null) {
-						parts.add(plugin.getConfiguration().getName() + "@" + plugin.getConfiguration().getVersion());
-					}
-					else {
-						parts.add(plugin.getConfiguration().getName());
-					}
-					if (plugin.getConfiguration().getVariables() != null) {
-						for (String variable : plugin.getConfiguration().getVariables()) {
-							parts.add("--variable");
-							// format: key=value
-							parts.add(variable);
-						}
-					}
-					exec(
-						project.getAbsolutePath(),
-						parts.toArray(new String[parts.size()]),
-						null,
-						properties,
-						outputLog,
-						errorLog,
-						true
-					);		
+				else if ("cordova-plugin-splashscreen".equals(plugin.getConfiguration().getName())) {
+					hasSplash = true;
 				}
 			}
+			if (!hasSplash) {
+				// always add the splash plugin
+				// could limit this to only when you have splash images...
+				CordovaPlugin splashPlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
+				splashPlugin.getConfiguration().setName("cordova-plugin-splashscreen");
+				splashPlugin.getConfiguration().setVersion("3.2.2");
+				plugins.add(splashPlugin);
+			}
+			if (!hasFile) {
+				// it seems that we _always_ need the cordova-plugin-file plugin? when installing without it (on vm at least) it threw an exception that it could not access the /.../www/index.html file
+				CordovaPlugin filePlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
+				filePlugin.getConfiguration().setName("cordova-plugin-file");
+				plugins.add(filePlugin);
+			}
 			
+			// crosswalk does NOT play nice with other plugins, it has to be added _first_ before others otherwise you get strange behavior:
+			// we have seen "VERSION DOWNGRADE"
+			// we have seen "DUPLICATE PERMISSION"
+			// once those were resolved by removing the application from the device, we deployed and got an error that "device ready" did not fire within 5 seconds and got an empty screen
+			// by rebuilding with that plugin first, we got a decent deployment
+			Collections.sort(plugins, new Comparator<CordovaPlugin>() {
+				@Override
+				public int compare(CordovaPlugin o1, CordovaPlugin o2) {
+					try {
+						if (o1.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview")) {
+							return -1;
+						}
+						else if (o2.getConfiguration().getName().equals("cordova-plugin-crosswalk-webview")) {
+							return 1;
+						}
+						else {
+							return 0;
+						}
+					}
+					catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				}
+			});
+			for (CordovaPlugin plugin : plugins) {
+				List<String> parts = new ArrayList<String>();
+				parts.add(cordovaPath + "cordova");
+				parts.add("plugin");
+				parts.add("add");
+				if (plugin.getConfiguration().getVersion() != null) {
+					parts.add(plugin.getConfiguration().getName() + "@" + plugin.getConfiguration().getVersion());
+				}
+				else {
+					parts.add(plugin.getConfiguration().getName());
+				}
+				if (plugin.getConfiguration().getVariables() != null) {
+					for (String variable : plugin.getConfiguration().getVariables()) {
+						parts.add("--variable");
+						// format: key=value
+						parts.add(variable);
+					}
+				}
+				exec(
+					project.getAbsolutePath(),
+					parts.toArray(new String[parts.size()]),
+					null,
+					properties,
+					outputLog,
+					errorLog,
+					true
+				);		
+			}
+		
 			logger.info("Cleaning the www directory");
 			FileDirectory projectDirectory = new FileDirectory(null, project, false);
 			projectDirectory.delete("www");
@@ -601,7 +601,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				// now run it
 				exec(
 					project.getAbsolutePath(),
-					new String [] { "cordova", "run", targetPlatform.getCordovaName() },
+					new String [] { cordovaPath + "cordova", "run", targetPlatform.getCordovaName() },
 					null,
 					properties,
 					outputLog,
