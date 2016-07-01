@@ -16,10 +16,10 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.util.KeyValueMapAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
-@XmlType(propOrder = {"namespace", "name", "title", "version", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
+@XmlType(propOrder = {"namespace", "name", "title", "version", "build", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
 public class CordovaApplicationConfiguration {
 	
-	private String name, namespace, title, version;
+	private String name, namespace, title, version, build;
 	
 	private List<Platform> platforms;
 	
@@ -62,6 +62,13 @@ public class CordovaApplicationConfiguration {
 	}
 	public void setVersion(String version) {
 		this.version = version;
+	}
+	
+	public String getBuild() {
+		return build;
+	}
+	public void setBuild(String build) {
+		this.build = build;
 	}
 	
 	public List<Platform> getPlatforms() {
@@ -209,24 +216,30 @@ public class CordovaApplicationConfiguration {
 	}
 	
 	public enum Platform {
-		ANDROID("android", true, Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI),
-		IOS("ios", true, Density.IPHONE4, Density.IPHONE4_RETINA, Density.IPHONE5, Density.IPHONE6, Density.IPAD, Density.IPHONE_SPOTLIGHT, Density.IPAD_SPOTLIGHT),
-		WINDOWS("windows", false),
-		BLACKBERRY10("blackberry10", false),
-		FIRE_OS("fireos", false),
-		FIREFOX_OS("firefoxos", false),
-		UBUNTU("ubuntu", false),
-		WEB_OS("webos", false),
-		TIZEN("tizen", false);
+		ANDROID("android", true, "android-versionCode", Density.LDPI, Density.MDPI, Density.HDPI, Density.XHDPI, Density.XXHDPI, Density.XXXHDPI),
+		IOS("ios", true, "ios-CFBundleVersion", Density.IPHONE4, Density.IPHONE4_RETINA, Density.IPHONE5, Density.IPHONE6, Density.IPAD, Density.IPHONE_SPOTLIGHT, Density.IPAD_SPOTLIGHT),
+		WINDOWS("windows", false, "windows-packageVersion"),
+		BLACKBERRY10("blackberry10", false, null),
+		FIRE_OS("fireos", false, null),
+		FIREFOX_OS("firefoxos", false, null),
+		UBUNTU("ubuntu", false, null),
+		WEB_OS("webos", false, null),
+		TIZEN("tizen", false, null);
 		
 		private String cordovaName;
 		private Density[] densities;
 		private boolean useFullPath;
+		private String buildAttribute;
 
-		private Platform(String cordovaName, boolean useFullPath, Density...dimensions) {
+		private Platform(String cordovaName, boolean useFullPath, String buildAttribute, Density...dimensions) {
 			this.cordovaName = cordovaName;
 			this.useFullPath = useFullPath;
+			this.buildAttribute = buildAttribute;
 			this.densities = dimensions;
+		}
+
+		public String getBuildAttribute() {
+			return buildAttribute;
 		}
 
 		public String getCordovaName() {
