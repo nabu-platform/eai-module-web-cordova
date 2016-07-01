@@ -550,7 +550,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				config = config.replaceAll("(?s)(<widget[^>]+version[\\s]*=[\\s]*)(?:'|\")[^'\"]+(?:'|\")", "$1\"" + artifact.getConfiguration().getVersion() + "\"");
 			}
 			if (artifact.getConfiguration().getBuild() != null && targetPlatform.getBuildAttribute() != null) {
-				config = config.replaceAll("(?s)(<widget", "<widget " + targetPlatform.getBuildAttribute() + "=\"" + artifact.getConfiguration().getVersion() + "\"");
+				config = config.replaceAll("(?s)<widget", "<widget " + targetPlatform.getBuildAttribute() + "=\"" + artifact.getConfiguration().getBuild() + "\"");
 			}
 			// add images if required
 			config = addImages(config, artifact, wwwDirectory, targetPlatform);
