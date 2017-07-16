@@ -497,6 +497,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			if (version != null && !version.isEmpty()) {
 				environment.put("platformVersion", version);
 			}
+			environment.put("realm", application.getRealm());
 			environment.put("web", "false");
 			environment.put("url", host);
 			environment.put("host", hostName);
