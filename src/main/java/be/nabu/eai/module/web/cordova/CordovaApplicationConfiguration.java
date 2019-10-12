@@ -17,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.util.KeyValueMapAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
-@XmlType(propOrder = {"namespace", "name", "title", "version", "host", "port", "secure", "build", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
+@XmlType(propOrder = {"namespace", "name", "title", "version", "host", "port", "secure", "language", "build", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
 public class CordovaApplicationConfiguration {
 	
 	private String name, namespace, title, version, build;
@@ -37,6 +37,9 @@ public class CordovaApplicationConfiguration {
 	private String host;
 	private Integer port;
 	private Boolean secure;
+	
+	// the default language to render
+	private List<String> language;
 	
 	private Map<String, String> platformVersions;
 	
@@ -150,7 +153,12 @@ public class CordovaApplicationConfiguration {
 	public void setOrientation(Orientation orientation) {
 		this.orientation = orientation;
 	}
-	
+	public List<String> getLanguage() {
+		return language;
+	}
+	public void setLanguage(List<String> language) {
+		this.language = language;
+	}
 	public Boolean getDisableOverscroll() {
 		return disableOverscroll;
 	}

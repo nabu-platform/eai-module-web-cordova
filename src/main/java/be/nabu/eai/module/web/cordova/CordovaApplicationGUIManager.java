@@ -62,8 +62,11 @@ import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Orientatio
 import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Platform;
 import be.nabu.eai.module.web.cordova.plugin.CordovaPlugin;
 import be.nabu.eai.repository.EAIResourceRepository;
+import be.nabu.eai.repository.api.Translator;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.glue.api.Script;
+import be.nabu.glue.api.StringSubstituter;
+import be.nabu.glue.api.StringSubstituterProvider;
 import be.nabu.glue.core.impl.methods.SystemMethods.SystemProperty;
 import be.nabu.glue.core.impl.parsers.GlueParserProvider;
 import be.nabu.glue.core.impl.providers.StaticJavaMethodProvider;
@@ -87,6 +90,8 @@ import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.libs.resources.file.FileDirectory;
 import be.nabu.libs.resources.file.FileItem;
+import be.nabu.libs.types.api.ComplexContent;
+import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 import be.nabu.utils.io.IOUtils;
@@ -268,7 +273,6 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		}
 	}
 	
-	@SuppressWarnings("unchecked")
 	private void run(CordovaApplication artifact, Platform targetPlatform, boolean release, final TextArea outputLog, final TextArea errorLog, boolean clean) {
 		try {
 			outputLog.clear();
@@ -517,6 +521,31 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			environment.put("hostName", artifact.getConfig().getHost() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getHost() : artifact.getConfig().getHost());
 			environment.put("webApplicationId", application.getId());
 			environment.put("secure", Boolean.toString(secure));
+			if (artifact.getConfig().getLanguage() != null) {
+				StringBuilder builder = new StringBuilder();
+				String defaultLanguage = null;
+				for (String language : artifact.getConfig().getLanguage()) {
+					if (!builder.toString().isEmpty()) {
+						builder.append(",");
+					}
+					builder.append(language);
+					if (defaultLanguage == null) {
+						defaultLanguage = language;
+					}
+				}
+				if (defaultLanguage != null) {
+					environment.put("defaultLanguage", defaultLanguage);
+					environment.put("availableLanguages", builder.toString());
+				}
+			}
+			List<String> languages = new ArrayList<String>();
+			String defaultLanguage = null;
+			if (artifact.getConfig().getLanguage() != null) {
+				languages.addAll(artifact.getConfig().getLanguage());
+				if (languages.size() > 0) {
+					defaultLanguage = languages.get(0);
+				}
+			}
 			for (Script script : repository) {
 				// only copy public scripts?
 				if (GlueListener.isPublicScript(script)) {
@@ -524,47 +553,16 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					if (script.getRoot().getContext().getAnnotations().containsKey("path")) {
 						continue;
 					}
-					ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
-					StringWriter writer = new StringWriter();
-					SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
-					runtime.setFormatter(outputFormatter);
-					runtime.run();
-					List<Header> headers = (List<Header>) runtime.getContext().get(ResponseMethods.RESPONSE_HEADERS);
-					String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
-					// make sure we have the correct extensions for the pages
-					if (headers != null) {
-						String contentType = MimeUtils.getContentType(headers.toArray(new Header[0]));
-						if (contentType.equalsIgnoreCase("application/javascript")) {
-							if (!path.endsWith(".js")) {
-								path += ".js";
-							}
-						}
-						else if (contentType.equalsIgnoreCase("text/css")) {
-							if (!path.endsWith(".css")) {
-								path += ".css";
-							}
+					if (!script.getRoot().getContext().getAnnotations().containsKey("cordova")) {
+						continue;
+					}
+					if (languages.size() > 0) {
+						for (String language : languages) {
+							renderFile(application, script, wwwDirectory, environment, language, defaultLanguage);	
 						}
 					}
-					Resource file = ResourceUtils.touch(wwwDirectory, path);
-					WritableContainer<ByteBuffer> writable = ((WritableResource) file).getWritable();
-					try {
-						String string = writer.toString();
-						// make sure we add the correct extension, otherwise it might not get picked up
-						string = string.replaceAll("(<script[^>]+src=\".*?)\\?[^\"]+", "$1");
-						// we don't "need" to have the javascript end in .js (yet), but for css it is required
-						string = string.replaceAll("(<script[^>]+src=\"[^\"]+)", "$1.js").replaceAll("(<script[^>]+src=\"[^\"]+)\\.js\\.js", "$1.js");
-						// we can't have absolute references as they won't get picked up correctly from the file system
-						string = string.replaceAll("(<script[^>]+src=\")/", "$1");
-						// remove the query parameters, it doesn't really matter much but still...
-						string = string.replaceAll("(<link[^>]+href=\".*?)\\?[^\"]+", "$1");
-						// the css files must end in ".css" or they won't get picked up
-						string = string.replaceAll("(<link[^>]+href=\"[^\"]+)", "$1.css").replaceAll("(<link[^>]+href=\"[^\"]+)\\.css\\.css", "$1.css");
-						// we can't have absolute references as they won't get picked up correctly from the file system
-						string = string.replaceAll("(<link[^>]+href=\")/", "$1");
-						writable.write(IOUtils.wrap(string.getBytes(), true));
-					}
-					finally {
-						writable.close();
+					else {
+						renderFile(application, script, wwwDirectory, environment, null, null);
 					}
 				}
 			}
@@ -1006,6 +1004,101 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			catch (IOException e) {
 				e.printStackTrace();
 			}
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void renderFile(WebApplication application, Script script, FileDirectory wwwDirectory, Map<String, String> environment, final String language, final String defaultLanguage) throws IOException {
+		environment.put("currentLanguage", language);
+		ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
+		StringWriter writer = new StringWriter();
+		SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
+		runtime.setFormatter(outputFormatter);
+		
+		// copy paste from web application...
+		final String additional;
+		final String key;
+		final Map<String, ComplexContent> translatorValues = application.getInputValues(application.getConfig().getTranslationService(), WebApplication.getMethod(Translator.class, "translate"));
+		if (translatorValues != null && translatorValues.size() > 0) {
+			if (translatorValues.size() > 1) {
+				throw new RuntimeException("Translation services can only have one extended field");
+			}
+			key = translatorValues.keySet().iterator().next();
+			JSONBinding binding = new JSONBinding(translatorValues.get(key).getType());
+			ByteArrayOutputStream output = new ByteArrayOutputStream();
+			binding.marshal(output, translatorValues.get(key));
+			additional = new String(output.toByteArray(), Charset.forName("UTF-8")).replace("'", "\\'");
+		}
+		else {
+			additional = null;
+			key = null;
+		}
+		StringSubstituterProvider languageSubstituter = new StringSubstituterProvider() {
+			@Override
+			public StringSubstituter getSubstituter(ScriptRuntime runtime) {
+				if (additional != null) {
+					// in the olden days instead of null as default category, we passed in: \"page:" + ScriptUtils.getFullName(runtime.getScript()) + "\")
+					// however, because of concatting and possible other processing, the runtime script name rarely has a relation to the context anymore
+					// it is clearer to work without a context then allowing for cross-context translations
+					return new be.nabu.glue.impl.ImperativeSubstitutor("%", "script.template(" + application.getConfig().getTranslationService().getId() 
+							+ "(control.when(\"${value}\" ~ \"^[a-zA-Z0-9.]+:.*\", string.replace(\"^([a-zA-Z0-9.]+):.*\", \"$1\", \"${value}\"), null), "
+							+ "control.when(\"${value}\" ~ \"^[a-zA-Z0-9.]+:.*\", string.replace(\"^[a-zA-Z0-9.]+:(.*)\", \"$1\", \"${value}\"), \"${value}\"), " + (language == null ? "null" : "\"" + language + "\"")
+							+ ", " + key + ": json.objectify('" + additional + "'))/translation)");
+				}
+				else {
+					return new be.nabu.glue.impl.ImperativeSubstitutor("%", "script.template(" + application.getConfig().getTranslationService().getId() 
+							+ "(control.when(\"${value}\" ~ \"^[a-zA-Z0-9.]+:.*\", string.replace(\"^([a-zA-Z0-9.]+):.*\", \"$1\", \"${value}\"), null), "
+							+ "control.when(\"${value}\" ~ \"^[a-zA-Z0-9.]+:.*\", string.replace(\"^[a-zA-Z0-9.]+:(.*)\", \"$1\", \"${value}\"), \"${value}\"), " + (language == null ? "null" : "\"" + language + "\"") + ")/translation)");
+				}
+			}
+		};
+		runtime.addSubstituterProviders(Arrays.asList(languageSubstituter));
+		runtime.run();
+		List<Header> headers = (List<Header>) runtime.getContext().get(ResponseMethods.RESPONSE_HEADERS);
+		String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
+		// make sure we have the correct extensions for the pages
+		if (headers != null) {
+			String contentType = MimeUtils.getContentType(headers.toArray(new Header[0]));
+			if (contentType.equalsIgnoreCase("application/javascript")) {
+				if (!path.endsWith(".js")) {
+					path += ".js";
+				}
+			}
+			else if (contentType.equalsIgnoreCase("text/css")) {
+				if (!path.endsWith(".css")) {
+					path += ".css";
+				}
+			}
+		}
+		if (language != null && !language.equals(defaultLanguage)) {
+			path = path.replaceAll("(\\.[^.]+$)", "-" + language + "$1");
+		}
+		Resource file = ResourceUtils.touch(wwwDirectory, path);
+		WritableContainer<ByteBuffer> writable = ((WritableResource) file).getWritable();
+		try {
+			String string = writer.toString();
+			// make sure we add the correct extension, otherwise it might not get picked up
+			string = string.replaceAll("(<script[^>]+src=\".*?)\\?[^\"]+", "$1");
+			// we don't "need" to have the javascript end in .js (yet), but for css it is required
+			string = string.replaceAll("(<script[^>]+src=\"[^\"]+)", "$1.js").replaceAll("(<script[^>]+src=\"[^\"]+)\\.js\\.js", "$1.js");
+			// we can't have absolute references as they won't get picked up correctly from the file system
+			string = string.replaceAll("(<script[^>]+src=\")/", "$1");
+			// remove the query parameters, it doesn't really matter much but still...
+			string = string.replaceAll("(<link[^>]+href=\".*?)\\?[^\"]+", "$1");
+			// the css files must end in ".css" or they won't get picked up
+			string = string.replaceAll("(<link[^>]+href=\"[^\"]+)", "$1.css").replaceAll("(<link[^>]+href=\"[^\"]+)\\.css\\.css", "$1.css");
+			// we can't have absolute references as they won't get picked up correctly from the file system
+			string = string.replaceAll("(<link[^>]+href=\")/", "$1");
+			
+			// any local include has to be differentiated for language
+			if (language != null && !language.equals(defaultLanguage)) {
+				string = string.replaceAll("(<script[^>]+src=\"(?!cordova\\.js)[^/\"]+[^\"]*)\\.js", "$1-" + language + ".js");
+				string = string.replaceAll("(<link[^>]+href=\"[^/\"]+[^\"]*)\\.css", "$1-" + language + ".css");
+			}
+			writable.write(IOUtils.wrap(string.getBytes(), true));
+		}
+		finally {
+			writable.close();
 		}
 	}
 }
