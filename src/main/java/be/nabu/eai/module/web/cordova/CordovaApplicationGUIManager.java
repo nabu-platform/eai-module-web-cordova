@@ -52,6 +52,7 @@ import be.nabu.eai.developer.managers.util.SimpleProperty;
 import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
 import be.nabu.eai.developer.util.EAIDeveloperUtils;
 import be.nabu.eai.module.web.application.WebApplication;
+import be.nabu.eai.module.web.application.WebApplicationMethods;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.component.WebComponent;
 import be.nabu.eai.module.web.cordova.CordovaApplicationConfiguration.Density;
@@ -65,6 +66,7 @@ import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.glue.api.Script;
 import be.nabu.glue.core.impl.methods.SystemMethods.SystemProperty;
 import be.nabu.glue.core.impl.parsers.GlueParserProvider;
+import be.nabu.glue.core.impl.providers.StaticJavaMethodProvider;
 import be.nabu.glue.core.repositories.ScannableScriptRepository;
 import be.nabu.glue.impl.SimpleExecutionEnvironment;
 import be.nabu.glue.impl.formatters.SimpleOutputFormatter;
@@ -73,6 +75,8 @@ import be.nabu.glue.utils.MultipleRepository;
 import be.nabu.glue.utils.ScriptRuntime;
 import be.nabu.glue.utils.ScriptUtils;
 import be.nabu.libs.http.glue.GlueListener;
+import be.nabu.libs.http.glue.GlueWebParserProvider;
+import be.nabu.libs.http.glue.impl.ResponseMethods;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.ResourceUtils;
@@ -90,6 +94,8 @@ import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.CharBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.io.api.WritableContainer;
+import be.nabu.utils.mime.api.Header;
+import be.nabu.utils.mime.impl.MimeUtils;
 
 // TODO: add "clear" button to clear the project (also the keystore!!)
 // TODO: add "run in release" mode can have debug mode, not sure if "run in release" is necessary? perhaps simply build
@@ -262,6 +268,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		}
 	}
 	
+	@SuppressWarnings("unchecked")
 	private void run(CordovaApplication artifact, Platform targetPlatform, boolean release, final TextArea outputLog, final TextArea errorLog, boolean clean) {
 		try {
 			outputLog.clear();
@@ -276,10 +283,15 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			String androidHome = MainController.getProperties().getProperty("ANDROID_HOME", System.getProperty("ANDROID_HOME", System.getenv("ANDROID_HOME")));
 			List<SystemProperty> properties = new ArrayList<SystemProperty>();
 			SystemProperty systemProperty = new SystemProperty("PATH", (nodePath == null ? "" : nodePath + System.getProperty("path.separator"))
+				+ (androidHome == null ? "" : androidHome + "/emulator" + System.getProperty("path.separator"))
 				// apparently android platform tools has to be on the path as well for the VMs to work, otherwise the VM might start up but the app is not loaded
 				+ (androidHome == null ? "" : androidHome + "/platform-tools" + System.getProperty("path.separator"))
+				+ (androidHome == null ? "" : androidHome + "/tools" + System.getProperty("path.separator"))
 				+ System.getenv("PATH"));
 			properties.add(systemProperty);
+			if (System.getProperty("java.home") != null) {
+				properties.add(new SystemProperty("JAVA_HOME", System.getProperty("java.home")));
+			}
 			if (androidHome != null) {
 				properties.add(new SystemProperty("ANDROID_HOME", androidHome));
 			}
@@ -468,10 +480,12 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					ResourceUtils.copy(resources, wwwDirectory);
 				}
 			}
+			WebApplication application = artifact.getConfiguration().getApplication();
 
 			// run all the scripts
 			ServiceMethodProvider serviceMethodProvider = new ServiceMethodProvider(artifact.getRepository(), artifact.getRepository(), artifact.getRepository().getServiceRunner());
-			GlueParserProvider parserProvider = new GlueParserProvider(serviceMethodProvider);
+//			GlueParserProvider parserProvider = new GlueParserProvider(serviceMethodProvider);
+			GlueParserProvider parserProvider = new GlueWebParserProvider(serviceMethodProvider, new StaticJavaMethodProvider(new WebApplicationMethods(application)));
 			
 			// add the repository for this artifact
 			addRepository(repository, artifact.getConfiguration().getApplication().getDirectory(), parserProvider);
@@ -479,10 +493,9 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			addRepository(repository, artifact.getConfiguration().getApplication().getConfiguration().getWebFragments(), parserProvider);
 			
 			logger.info("Copying pages...");
-			WebApplication application = artifact.getConfiguration().getApplication();
-			String hostName = application.getConfiguration().getVirtualHost().getConfiguration().getHost();
-			Integer port = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getPort();
-			boolean secure = application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getKeystore() != null;
+			String hostName = artifact.getConfig().getHost() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getHost() : artifact.getConfig().getHost();
+			Integer port = artifact.getConfig().getPort() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getPort() : artifact.getConfig().getPort();
+			boolean secure = artifact.getConfig().getSecure() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getServer().isSecure() : artifact.getConfig().getSecure();
 			String host = null;
 			if (hostName != null) {
 				if (port != null) {
@@ -501,23 +514,58 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			environment.put("web", "false");
 			environment.put("url", host);
 			environment.put("host", hostName);
-			environment.put("hostName", application.getConfiguration().getVirtualHost().getConfiguration().getHost());
+			environment.put("hostName", artifact.getConfig().getHost() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getHost() : artifact.getConfig().getHost());
 			environment.put("webApplicationId", application.getId());
 			environment.put("secure", Boolean.toString(secure));
 			for (Script script : repository) {
-				ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
-				StringWriter writer = new StringWriter();
-				SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
-				runtime.setFormatter(outputFormatter);
-				runtime.run();
-				String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
-				Resource file = ResourceUtils.touch(wwwDirectory, path);
-				WritableContainer<ByteBuffer> writable = ((WritableResource) file).getWritable();
-				try {
-					writable.write(IOUtils.wrap(writer.toString().getBytes(), true));
-				}
-				finally {
-					writable.close();
+				// only copy public scripts?
+				if (GlueListener.isPublicScript(script)) {
+					// these are glue REST services, ignore them
+					if (script.getRoot().getContext().getAnnotations().containsKey("path")) {
+						continue;
+					}
+					ScriptRuntime runtime = new ScriptRuntime(script, new SimpleExecutionEnvironment("local", environment), false, new HashMap<String, Object>());
+					StringWriter writer = new StringWriter();
+					SimpleOutputFormatter outputFormatter = new SimpleOutputFormatter(writer, false, false);
+					runtime.setFormatter(outputFormatter);
+					runtime.run();
+					List<Header> headers = (List<Header>) runtime.getContext().get(ResponseMethods.RESPONSE_HEADERS);
+					String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
+					// make sure we have the correct extensions for the pages
+					if (headers != null) {
+						String contentType = MimeUtils.getContentType(headers.toArray(new Header[0]));
+						if (contentType.equalsIgnoreCase("application/javascript")) {
+							if (!path.endsWith(".js")) {
+								path += ".js";
+							}
+						}
+						else if (contentType.equalsIgnoreCase("text/css")) {
+							if (!path.endsWith(".css")) {
+								path += ".css";
+							}
+						}
+					}
+					Resource file = ResourceUtils.touch(wwwDirectory, path);
+					WritableContainer<ByteBuffer> writable = ((WritableResource) file).getWritable();
+					try {
+						String string = writer.toString();
+						// make sure we add the correct extension, otherwise it might not get picked up
+						string = string.replaceAll("(<script[^>]+src=\".*?)\\?[^\"]+", "$1");
+						// we don't "need" to have the javascript end in .js (yet), but for css it is required
+						string = string.replaceAll("(<script[^>]+src=\"[^\"]+)", "$1.js").replaceAll("(<script[^>]+src=\"[^\"]+)\\.js\\.js", "$1.js");
+						// we can't have absolute references as they won't get picked up correctly from the file system
+						string = string.replaceAll("(<script[^>]+src=\")/", "$1");
+						// remove the query parameters, it doesn't really matter much but still...
+						string = string.replaceAll("(<link[^>]+href=\".*?)\\?[^\"]+", "$1");
+						// the css files must end in ".css" or they won't get picked up
+						string = string.replaceAll("(<link[^>]+href=\"[^\"]+)", "$1.css").replaceAll("(<link[^>]+href=\"[^\"]+)\\.css\\.css", "$1.css");
+						// we can't have absolute references as they won't get picked up correctly from the file system
+						string = string.replaceAll("(<link[^>]+href=\")/", "$1");
+						writable.write(IOUtils.wrap(string.getBytes(), true));
+					}
+					finally {
+						writable.close();
+					}
 				}
 			}
 			
@@ -534,6 +582,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			finally {
 				readable.close();
 			}
+			// refactor to use structural xml...
 			String config = new String(bytes, "UTF-8");
 			// remove current option for fullscreen
 			config = config.replaceAll("(?s)<preference name=\"Fullscreen\"[^>]+/>", "");
@@ -554,6 +603,16 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			if (artifact.getConfiguration().getBuild() != null && targetPlatform.getBuildAttribute() != null) {
 				config = config.replaceAll("(?s)<widget", "<widget " + targetPlatform.getBuildAttribute() + "=\"" + artifact.getConfiguration().getBuild() + "\"");
 			}
+			
+			// if the target is not secure, we need to explicitly allow plain text connections since android 9, otherwise you will get "net::ERR_CLEARTEXT_NOT_PERMITTED"
+			if (!secure) {
+				// the android namespace is not defined by default it seems
+				config = config.replace("<widget", "<widget xmlns:android=\"http://schemas.android.com/apk/res/android\"");
+				config = config.replaceAll("(<platform[^>]+android[^>]+>)", "$1<access origin=\"*\" /><edit-config file=\"app/src/main/AndroidManifest.xml\" mode=\"merge\" target=\"/manifest/application\">\n" + 
+						"      <application android:usesCleartextTraffic=\"true\" />\n" + 
+						"  </edit-config><allow-navigation href=\"*\" />");
+			}
+			
 			// add images if required
 			config = addImages(config, artifact, wwwDirectory, targetPlatform);
 			
@@ -591,6 +650,14 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					if (release) {
 						commands.add(3, "--release");
 					}
+					StringBuilder builder = new StringBuilder();
+					for (String command : commands) {
+						if (!builder.toString().isEmpty()) {
+							builder.append(" ");
+						}
+						builder.append(command);
+					}
+					logger.info("Running ANDROID in " + project.getAbsolutePath() + ": " + builder.toString());
 					exec(
 						project.getAbsolutePath(),
 						commands.toArray(new String[commands.size()]),

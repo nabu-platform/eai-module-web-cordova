@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.validation.constraints.NotNull;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
@@ -16,7 +17,7 @@ import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.util.KeyValueMapAdapter;
 
 @XmlRootElement(name = "cordovaApplication")
-@XmlType(propOrder = {"namespace", "name", "title", "version", "build", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
+@XmlType(propOrder = {"namespace", "name", "title", "version", "host", "port", "secure", "build", "platforms", "platformVersions", "plugins", "application", "keystore", "signatureAlias", "fullscreen", "orientation", "disableOverscroll" })
 public class CordovaApplicationConfiguration {
 	
 	private String name, namespace, title, version, build;
@@ -32,10 +33,34 @@ public class CordovaApplicationConfiguration {
 	private Boolean fullscreen;
 	private Orientation orientation;
 	
+	// if you want to use a different host from the one configured in the virtual host (e.g. cause you're building from dev), you can configure it here
+	private String host;
+	private Integer port;
+	private Boolean secure;
+	
 	private Map<String, String> platformVersions;
 	
 	private Boolean disableOverscroll;
 
+	public Boolean getSecure() {
+		return secure;
+	}
+	public void setSecure(Boolean secure) {
+		this.secure = secure;
+	}
+	public Integer getPort() {
+		return port;
+	}
+	public void setPort(Integer port) {
+		this.port = port;
+	}
+	public String getHost() {
+		return host;
+	}
+	public void setHost(String host) {
+		this.host = host;
+	}
+	@NotNull
 	public String getName() {
 		return name;
 	}
@@ -43,6 +68,7 @@ public class CordovaApplicationConfiguration {
 		this.name = name;
 	}
 
+	@NotNull
 	public String getNamespace() {
 		return namespace;
 	}
@@ -50,6 +76,7 @@ public class CordovaApplicationConfiguration {
 		this.namespace = namespace;
 	}
 
+	@NotNull
 	public String getTitle() {
 		return title;
 	}
@@ -86,6 +113,7 @@ public class CordovaApplicationConfiguration {
 		this.plugins = plugins;
 	}
 	
+	@NotNull
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public KeyStoreArtifact getKeystore() {
 		return keystore;
@@ -94,6 +122,7 @@ public class CordovaApplicationConfiguration {
 		this.keystore = keystore;
 	}
 	
+	@NotNull
 	public String getSignatureAlias() {
 		return signatureAlias;
 	}
