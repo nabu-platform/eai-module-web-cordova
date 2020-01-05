@@ -80,6 +80,7 @@ import be.nabu.glue.utils.ScriptUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.http.glue.GlueWebParserProvider;
 import be.nabu.libs.http.glue.impl.ResponseMethods;
+import be.nabu.libs.http.glue.impl.ServerMethods;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.ResourceUtils;
@@ -401,14 +402,14 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					hasSplash = true;
 				}
 			}
-			if (!hasSplash) {
-				// always add the splash plugin
-				// could limit this to only when you have splash images...
-				CordovaPlugin splashPlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
-				splashPlugin.getConfiguration().setName("cordova-plugin-splashscreen");
-				splashPlugin.getConfiguration().setVersion("3.2.2");
-				plugins.add(splashPlugin);
-			}
+//			if (!hasSplash) {
+//				// always add the splash plugin
+//				// could limit this to only when you have splash images...
+//				CordovaPlugin splashPlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
+//				splashPlugin.getConfiguration().setName("cordova-plugin-splashscreen");
+//				splashPlugin.getConfiguration().setVersion("3.2.2");
+//				plugins.add(splashPlugin);
+//			}
 			if (!hasFile) {
 				// it seems that we _always_ need the cordova-plugin-file plugin? when installing without it (on vm at least) it threw an exception that it could not access the /.../www/index.html file
 				CordovaPlugin filePlugin = new CordovaPlugin(artifact.getId(), artifact.getDirectory(), artifact.getRepository());
