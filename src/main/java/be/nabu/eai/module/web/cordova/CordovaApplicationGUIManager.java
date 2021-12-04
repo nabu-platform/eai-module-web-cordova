@@ -278,6 +278,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 		try {
 			outputLog.clear();
 			errorLog.clear();
+			// (MUST) CONFIGURE, e.g. /usr/bin/
 			String nodePath = MainController.getProperties().getProperty("NODE_PATH", System.getProperty("NODE_PATH", System.getenv("NODE_PATH")));
 			if (nodePath == null) {
 				logger.warn("NODE_PATH is not configured in developer.properties, make sure both node and npm are available in your system PATH");
@@ -285,6 +286,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			else if (!nodePath.endsWith("/")) {
 				nodePath += "/";
 			}
+			// (MUST) CONFIGURE e.g. /home/alex/Android/Sdk
 			String androidHome = MainController.getProperties().getProperty("ANDROID_HOME", System.getProperty("ANDROID_HOME", System.getenv("ANDROID_HOME")));
 			List<SystemProperty> properties = new ArrayList<SystemProperty>();
 			SystemProperty systemProperty = new SystemProperty("PATH", (nodePath == null ? "" : nodePath + System.getProperty("path.separator"))
@@ -294,13 +296,26 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				+ (androidHome == null ? "" : androidHome + "/tools" + System.getProperty("path.separator"))
 				+ System.getenv("PATH"));
 			properties.add(systemProperty);
-			if (System.getProperty("java.home") != null) {
+			// (SHOULD) CONFIGURE e.g. /home/alex/Android/Sdk/platform-tools
+			String androidRoot = MainController.getProperties().getProperty("ANDROID_SDK_ROOT", System.getProperty("ANDROID_SDK_ROOT", System.getenv("ANDROID_SDK_ROOT")));
+			if (androidRoot != null) {
+				properties.add(new SystemProperty("ANDROID_SDK_ROOT", androidRoot));
+			}
+			// (SHOULD) configure, especially if developer is not running in a version that is supported (does not work though?)
+			if (System.getProperty("CORDOVA_JAVA_HOME") != null) {
+				properties.add(new SystemProperty("JAVA_HOME", System.getProperty("CORDOVA_JAVA_HOME")));
+			}
+			else if (System.getProperty("JAVA_HOME") != null) {
+				properties.add(new SystemProperty("JAVA_HOME", System.getProperty("JAVA_HOME")));
+			}
+			else if (System.getProperty("java.home") != null) {
 				properties.add(new SystemProperty("JAVA_HOME", System.getProperty("java.home")));
 			}
 			if (androidHome != null) {
 				properties.add(new SystemProperty("ANDROID_HOME", androidHome));
 			}
 			File folder = new File(".nabu/cordova");
+			logger.info("Using build path: " + folder.getAbsolutePath());
 			// create a work folder for cordova
 			if (!folder.exists()) {
 				folder.mkdirs();
@@ -515,6 +530,15 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			if (version != null && !version.isEmpty()) {
 				environment.put("platformVersion", version);
 			}
+			// nope, not doing this! we use server.root
+			// we want a fully qualified host, with the subpath included if relevant
+//			if (!"/".equals(application.getServerPath())) {
+//				host += "/" + application.getServerPath().replaceFirst("^/", "");
+//				// because this will serve as the base, it must end with a "/"
+//				if (!host.endsWith("/")) {
+//					host += "/";
+//				}
+//			}
 			environment.put("realm", application.getRealm());
 			environment.put("web", "false");
 			environment.put("url", host);
@@ -894,6 +918,7 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 				env[i] = allProperties.get(i).getKey() + "=" + allProperties.get(i).getValue();
 			}
 		}
+		logger.info("Running command: " + Arrays.asList(commands).toString().replace(",", "").replaceAll("^\\[", "").replaceAll("\\]$", ""));
 		Process process = Runtime.getRuntime().exec(commands, env, dir);
 		if (inputContents != null && !inputContents.isEmpty()) {
 			OutputStream output = new BufferedOutputStream(process.getOutputStream());
@@ -1054,6 +1079,8 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			}
 		};
 		runtime.addSubstituterProviders(Arrays.asList(languageSubstituter));
+		// make sure we have the correct root path
+		runtime.getContext().put(ServerMethods.ROOT_PATH, application.getServerPath());
 		runtime.run();
 		List<Header> headers = (List<Header>) runtime.getContext().get(ResponseMethods.RESPONSE_HEADERS);
 		String path = ScriptUtils.getFullName(script).replace(".", "/") + (script.getName().equals("index") ? ".html" : "");
