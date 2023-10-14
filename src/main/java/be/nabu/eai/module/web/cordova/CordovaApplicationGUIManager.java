@@ -6,6 +6,7 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -102,6 +103,7 @@ import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.io.api.WritableContainer;
 import be.nabu.utils.mime.api.Header;
 import be.nabu.utils.mime.impl.MimeUtils;
+import be.nabu.utils.security.KeyStoreHandler;
 
 // TODO: add "clear" button to clear the project (also the keystore!!)
 // TODO: add "run in release" mode can have debug mode, not sure if "run in release" is necessary? perhaps simply build
@@ -514,8 +516,8 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 			
 			logger.info("Copying pages...");
 			String hostName = artifact.getConfig().getHost() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getHost() : artifact.getConfig().getHost();
-			Integer port = artifact.getConfig().getPort() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getServer().getConfiguration().getPort() : artifact.getConfig().getPort();
-			boolean secure = artifact.getConfig().getSecure() == null ? application.getConfiguration().getVirtualHost().getConfiguration().getServer().isSecure() : artifact.getConfig().getSecure();
+			Integer port = artifact.getConfig().getPort() == null ? application.getConfiguration().getVirtualHost().getServer().getConfiguration().getPort() : artifact.getConfig().getPort();
+			boolean secure = artifact.getConfig().getSecure() == null ? application.getConfiguration().getVirtualHost().getServer().isSecure() : artifact.getConfig().getSecure();
 			String host = null;
 			if (hostName != null) {
 				if (port != null) {
@@ -656,7 +658,22 @@ public class CordovaApplicationGUIManager extends BaseJAXBGUIManager<CordovaAppl
 					// TODO: always overwrite the keystore otherwise changes are not picked up (e.g. if you updated the password!)
 					File keystore = new File(project, "keystore.jks");
 					if (!keystore.exists()) {
-						artifact.getConfiguration().getKeystore().getKeyStore().save(new FileItem(null, keystore, false));
+						try {
+							OutputStream output = null;
+							try {
+								output = new BufferedOutputStream(new FileOutputStream(keystore)); 
+								new KeyStoreHandler(artifact.getConfiguration().getKeystore().getKeyStore().getKeyStore()).save(output, artifact.getConfig().getKeystore().getKeyStore().getPassword());
+							}
+							finally {
+								if (output != null) {
+									output.close();
+								}
+							}
+						}
+						catch (Exception e) {
+							throw new RuntimeException(e);
+						}
+//						artifact.getConfiguration().getKeystore().getKeyStore().save(new FileItem(null, keystore, false));
 					}
 					// now run it
 					List<String> commands = new ArrayList<String>(Arrays.asList(new String [] { 
